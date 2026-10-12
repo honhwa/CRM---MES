@@ -128,6 +128,13 @@ public sealed class ApiClient
             ? "API non disponibile. Avvia CrmMes.Api sulla porta 5092."
             : $"Server non raggiungibile all'indirizzo {_httpClient.BaseAddress}. Verifica la connessione o le Impostazioni server.";
 
+    /// <summary>Messaggio per un 5xx: il server ha risposto, quindi la rete funziona. Da non confondere
+    /// con UnavailableMessage (nessuna risposta): distinzione introdotta dopo l'incidente del 9 ottobre
+    /// 2026, in cui una migrazione mancante in produzione faceva rispondere 500 al login e il programma
+    /// mostrava "server non raggiungibile", portando a controllare la rete invece del server.</summary>
+    private static string ServerErrorMessage(int statusCode, string body) =>
+        $"Il server ha risposto con un errore ({statusCode}): {TryExtractMessage(body) ?? "riprova tra poco; se persiste contatta l'assistenza."}";
+
     public async Task<AuthDto> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         try
@@ -142,14 +149,18 @@ public sealed class ApiClient
             }
 
             // 403: the Admin doesn't let this role use the desktop program; 429: account locked. Both come
-            // with a message for the user, which must not be turned into "server unreachable".
-            if (!response.IsSuccessStatusCode && (int)response.StatusCode < 500)
+            // with a message for the user, which must not be turned into "server unreachable". A 5xx is a
+            // real response from a real server: it must say so, not be lumped into the same message as a
+            // genuine connection failure (see l'incidente del 9 ottobre in STATO-PROGETTO.md).
+            if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync(cancellationToken);
-                throw new InvalidOperationException(TryExtractMessage(body) ?? $"Accesso non riuscito ({(int)response.StatusCode}).");
+                var statusCode = (int)response.StatusCode;
+                throw new InvalidOperationException(statusCode >= 500
+                    ? ServerErrorMessage(statusCode, body)
+                    : TryExtractMessage(body) ?? $"Accesso non riuscito ({statusCode}).");
             }
 
-            response.EnsureSuccessStatusCode();
             var result = await response.Content.ReadFromJsonAsync<AuthDto>(cancellationToken: cancellationToken);
             return result ?? throw new InvalidOperationException("Risposta login non valida.");
         }
@@ -168,7 +179,10 @@ public sealed class ApiClient
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync(cancellationToken);
-                throw new InvalidOperationException(TryExtractMessage(body) ?? "Codice non valido.");
+                var statusCode = (int)response.StatusCode;
+                throw new InvalidOperationException(statusCode >= 500
+                    ? ServerErrorMessage(statusCode, body)
+                    : TryExtractMessage(body) ?? "Codice non valido.");
             }
 
             return await response.Content.ReadFromJsonAsync<AuthDto>(cancellationToken: cancellationToken)
@@ -176,7 +190,7 @@ public sealed class ApiClient
         }
         catch (HttpRequestException exception)
         {
-            throw new InvalidOperationException("Server non raggiungibile.", exception);
+            throw new InvalidOperationException(UnavailableMessage(), exception);
         }
     }
 
@@ -272,7 +286,15 @@ public sealed class ApiClient
                 throw new InvalidOperationException(TryExtractMessage(body) ?? "Accesso non più consentito da questo programma.");
             }
 
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                var statusCode = (int)response.StatusCode;
+                throw new InvalidOperationException(statusCode >= 500
+                    ? ServerErrorMessage(statusCode, body)
+                    : $"Rinnovo sessione non riuscito ({statusCode}).");
+            }
+
             var result = await response.Content.ReadFromJsonAsync<AuthDto>(cancellationToken: cancellationToken);
             return result ?? throw new InvalidOperationException("Risposta di rinnovo sessione non valida.");
         }
