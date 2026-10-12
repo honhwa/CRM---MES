@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using CrmMes.Api.Services;
 using CrmMes.Core.Data;
+using CrmMes.Core.Flows;
 using CrmMes.Core.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,11 +21,13 @@ public class TransportDocumentsController : ControllerBase
     private const int MaxNumberingAttempts = 3;
     private readonly ApplicationDbContext _dbContext;
     private readonly StockLedger _stock;
+    private readonly DataFlowEngine _flows;
 
-    public TransportDocumentsController(ApplicationDbContext dbContext, StockLedger stock)
+    public TransportDocumentsController(ApplicationDbContext dbContext, StockLedger stock, DataFlowEngine flows)
     {
         _dbContext = dbContext;
         _stock = stock;
+        _flows = flows;
     }
 
     [HttpGet("reasons")]
@@ -281,13 +284,27 @@ public class TransportDocumentsController : ControllerBase
             try
             {
                 await _dbContext.SaveChangesAsync(cancellationToken);
-                return Ok(ToResponse((await LoadAsync(id, false, cancellationToken))!));
             }
             catch (DbUpdateException) when (attempt < MaxNumberingAttempts)
             {
                 // Someone took the same number: forget the attempted change and read the sequence again.
                 _dbContext.ChangeTracker.Clear();
+                continue;
             }
+
+            // Fuori dal try di sopra: un fallimento qui è del motore dei flussi, non un conflitto di
+            // numerazione, e non deve far ripetere l'emissione già salvata.
+            await _flows.PublishAsync(
+                DataFlowEvents.TransportDocumentIssued, "TransportDocument", document.Id,
+                new Dictionary<string, string>
+                {
+                    ["documentCode"] = DocumentCode(document),
+                    ["reason"] = TransportReasons.Label(document.Reason, document.ReasonDetail),
+                    ["recipientName"] = document.RecipientName,
+                    ["issuedBy"] = document.IssuedBy ?? string.Empty,
+                },
+                cancellationToken);
+            return Ok(ToResponse((await LoadAsync(id, false, cancellationToken))!));
         }
     }
 

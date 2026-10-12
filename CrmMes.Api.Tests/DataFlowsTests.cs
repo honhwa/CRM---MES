@@ -169,4 +169,31 @@ public class DataFlowsTests : IClassFixture<AdminSeededApiTestFixture>
         var notifications = await warehouseClient.GetFromJsonAsync<List<NotificationResponse>>("/api/notifications");
         Assert.Contains(notifications!, n => n.Message == $"Prodotto {code} passato a rev. B.");
     }
+
+    /// <summary>Secondo evento cablato dopo quello guida (modifica tecnica), per provare che aggiungerne uno
+    /// nuovo è davvero una modifica piccola: emettere un DDT reale deve avvisare chi è configurato.</summary>
+    [Fact]
+    public async Task IssuingATransportDocument_PublishesTheRealEvent_EndToEnd()
+    {
+        await ResetFlowsAsync();
+        var shipping = await TestAuth.CreateUserWithRoleAsync(_fixture.Factory, _fixture.Admin.Token, "Warehouse");
+        using var shippingClient = _fixture.Factory.AuthenticatedClient(shipping.Token);
+        (await _admin.PostAsJsonAsync("/api/data-flows",
+            new SaveDataFlowRequest("Avviso DDT", DataFlowEvents.TransportDocumentIssued, true,
+                [new SaveDataFlowStepRequest(DataFlowStepType.NotifyRole, "Warehouse", "DDT {{documentCode}} emesso per {{recipientName}}.")]))).EnsureSuccessStatusCode();
+
+        var draft = await _admin.PostAsJsonAsync("/api/transport-documents", new SaveTransportDocumentRequest(
+            "Sale", null, null, null, "Cliente Flussi spa", "Via Prova 1, Milano", "IT09876543210", null,
+            "Sender", null, "Franco", "Scatole", 1, 10m, null, null, null, null,
+            [new SaveTransportDocumentLineRequest(null, null, "ART-FLUSSI", "Pezzo di prova", 1, "pz", null, null)]));
+        draft.EnsureSuccessStatusCode();
+        var document = (await draft.Content.ReadFromJsonAsync<TransportDocumentResponse>())!;
+
+        var issued = await _admin.PostAsJsonAsync($"/api/transport-documents/{document.Id}/issue", new IssueTransportDocumentRequest(null));
+        issued.EnsureSuccessStatusCode();
+        var issuedDocument = (await issued.Content.ReadFromJsonAsync<TransportDocumentResponse>())!;
+
+        var notifications = await shippingClient.GetFromJsonAsync<List<NotificationResponse>>("/api/notifications");
+        Assert.Contains(notifications!, n => n.Message == $"DDT {issuedDocument.DocumentCode} emesso per Cliente Flussi spa.");
+    }
 }

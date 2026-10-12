@@ -16,6 +16,10 @@ public static class DataFlowEvents
     /// revisione. Primo evento cablato, sul caso guida del titolare.</summary>
     public const string EngineeringChangeApplied = "engineering.change.applied";
 
+    /// <summary>Un DDT viene emesso (numero assegnato, giacenze scaricate). Secondo evento cablato, per
+    /// provare che aggiungerne uno nuovo è davvero una modifica piccola una volta che il motore esiste.</summary>
+    public const string TransportDocumentIssued = "transportDocument.issued";
+
     public static readonly IReadOnlyDictionary<string, DataFlowEventDefinition> All = new Dictionary<string, DataFlowEventDefinition>
     {
         [EngineeringChangeApplied] = new(
@@ -28,6 +32,15 @@ public static class DataFlowEvents
                 new("fromRevision", "Revisione precedente"),
                 new("toRevision", "Nuova revisione"),
                 new("requestedBy", "Richiesta da"),
+            ]),
+        [TransportDocumentIssued] = new(
+            TransportDocumentIssued,
+            "DDT emesso",
+            [
+                new("documentCode", "Numero DDT"),
+                new("reason", "Causale"),
+                new("recipientName", "Destinatario"),
+                new("issuedBy", "Emesso da"),
             ]),
     };
 
