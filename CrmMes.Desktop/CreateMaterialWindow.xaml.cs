@@ -10,12 +10,18 @@ public partial class CreateMaterialWindow : Window
     public bool Created { get; private set; }
 
     private IReadOnlyList<LayoutFieldDto> _layout = [];
+    private IReadOnlyList<CustomFieldDefinitionDto> _customFieldDefinitions = [];
+    private List<CustomFieldControl> _customFieldControls = [];
 
     public CreateMaterialWindow(ApiClient apiClient)
     {
         InitializeComponent();
         _apiClient = apiClient;
-        Loaded += async (_, _) => await LoadLayoutAsync();
+        Loaded += async (_, _) =>
+        {
+            await LoadLayoutAsync();
+            await LoadCustomFieldsAsync();
+        };
     }
 
     private async Task LoadLayoutAsync()
@@ -31,11 +37,21 @@ public partial class CreateMaterialWindow : Window
         ]);
     }
 
+    /// <summary>Campi personalizzati aggiunti dall'Admin alla schermata "Nuovo materiale" (stesso meccanismo
+    /// già collegato a fornitori e clienti): costruiti a runtime, nessun valore precompilato in creazione.</summary>
+    private async Task LoadCustomFieldsAsync()
+    {
+        _customFieldDefinitions = await CustomFieldForm.LoadAsync(_apiClient, "materials.new");
+        _customFieldControls = CustomFieldForm.BuildControls(CustomFieldsPanel, _customFieldDefinitions, values: null);
+    }
+
     private async void Create_Click(object sender, RoutedEventArgs e)
     {
         var code = CodeBox.Text.Trim();
         var name = NameBox.Text.Trim();
         var unit = string.IsNullOrWhiteSpace(UnitBox.Text) ? "pz" : UnitBox.Text.Trim();
+
+        var customFieldValues = CustomFieldForm.ToValues(_customFieldControls);
 
         var missing = FormLayoutApplier.Missing(_layout, key => key switch
         {
@@ -46,6 +62,7 @@ public partial class CreateMaterialWindow : Window
             "minStock" => !string.IsNullOrWhiteSpace(MinStockBox.Text),
             _ => true,
         });
+        missing.AddRange(CustomFieldForm.Missing(_customFieldDefinitions, customFieldValues));
         if (missing.Count > 0)
         {
             ErrorText.Text = "Compila i campi obbligatori: " + string.Join(", ", missing) + ".";
@@ -59,10 +76,17 @@ public partial class CreateMaterialWindow : Window
             return;
         }
 
+        var typeError = CustomFieldForm.Validate(_customFieldDefinitions, customFieldValues);
+        if (typeError is not null)
+        {
+            ErrorText.Text = typeError;
+            return;
+        }
+
         CreateButton.IsEnabled = false;
         try
         {
-            await _apiClient.CreateMaterialAsync(code, name, unit, stock, minStock);
+            await _apiClient.CreateMaterialAsync(code, name, unit, stock, minStock, customFieldValues);
             Created = true;
             Close();
         }

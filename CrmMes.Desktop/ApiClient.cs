@@ -1649,11 +1649,11 @@ public sealed class ApiClient
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
-    public async Task CreateMaterialAsync(string code, string name, string unit, decimal stock, decimal minStock, CancellationToken cancellationToken = default)
+    public async Task CreateMaterialAsync(string code, string name, string unit, decimal stock, decimal minStock, Dictionary<string, string?>? customFields = null, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsJsonAsync(
             "api/materials",
-            new { code, name, unit, stock, minStock },
+            new { code, name, unit, stock, minStock, customFields },
             cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }

@@ -76,7 +76,7 @@ public class EnergyTests : IClassFixture<AdminSeededApiTestFixture>
     public async Task DailyConsumption_GroupsByDay()
     {
         var equipment = await EquipmentAsync();
-        var day1 = new DateTime(2026, 9, 10, 0, 0, 0, DateTimeKind.Utc);
+        var day1 = DateTime.UtcNow.Date.AddDays(-5); // relativo a oggi: deve restare dentro la finestra "ultimi 30 giorni" della query qualunque sia la data di esecuzione
         await SeedReadingsAsync(equipment.Id,
             (day1.AddHours(1), 0m),
             (day1.AddHours(23), 50m),       // day 1: +50
