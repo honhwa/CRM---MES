@@ -70,4 +70,34 @@ public class ClientSettingsTests : IDisposable
 
         Assert.Equal(expected, settings.IsLocalHost());
     }
+
+    [Fact]
+    public void HasOfflineAdminPin_FalseUntilAllThreeFieldsAreSet()
+    {
+        var settings = new ClientSettings();
+        Assert.False(settings.HasOfflineAdminPin);
+
+        settings.OfflineAdminEmail = "admin@azienda.it";
+        Assert.False(settings.HasOfflineAdminPin);
+
+        settings.OfflineAdminPinHash = "hash";
+        Assert.False(settings.HasOfflineAdminPin); // manca ancora il salt
+
+        settings.OfflineAdminPinSalt = "salt";
+        Assert.True(settings.HasOfflineAdminPin);
+    }
+
+    [Fact]
+    public void SaveThenLoad_RoundTripsOfflineAdminPin()
+    {
+        var (hash, salt) = OfflineAdminPin.Hash("4821");
+        var original = new ClientSettings { OfflineAdminEmail = "admin@azienda.it", OfflineAdminPinHash = hash, OfflineAdminPinSalt = salt };
+        original.Save(_path);
+
+        var loaded = ClientSettings.Load(_path);
+
+        Assert.True(loaded.HasOfflineAdminPin);
+        Assert.Equal("admin@azienda.it", loaded.OfflineAdminEmail);
+        Assert.True(OfflineAdminPin.Verify("4821", loaded.OfflineAdminPinHash!, loaded.OfflineAdminPinSalt!));
+    }
 }

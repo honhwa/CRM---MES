@@ -38,6 +38,14 @@ public partial class AdminGateWindow : Window
                 return;
             }
 
+            // Le impostazioni server restano riservate all'Admin pieno (il fornitore): l'Admin del
+            // cliente ha lo stesso ruolo ma non questa area, vedi User.IsFullAdmin.
+            if (!auth.IsFullAdmin)
+            {
+                ErrorText.Text = "Queste credenziali non hanno i permessi per le impostazioni del server.";
+                return;
+            }
+
             Verified = true;
             Close();
         }

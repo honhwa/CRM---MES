@@ -1,0 +1,24 @@
+<Window x:Class="CrmMes.Desktop.OfflineAdminPinSetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Accesso offline" Icon="Assets/logo.ico" Width="400" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource BackgroundBrush}">
+    <StackPanel Margin="24">
+        <TextBlock Text="Accesso amministratore offline" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+        <TextBlock Text="Facoltativo: imposta un PIN per poter entrare in questo PC anche se il server non risponde (es. per correggere l'indirizzo o preparare la configurazione aziendale). Vale solo su questo PC e solo per l'accesso in emergenza: il lavoro vero richiede sempre una connessione vera." Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,18" />
+
+        <TextBlock Text="PIN (4-8 cifre)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12.5" Margin="0,0,0,5" />
+        <PasswordBox x:Name="PinBox" Margin="0,0,0,14" />
+
+        <TextBlock Text="Ripeti il PIN" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12.5" Margin="0,0,0,5" />
+        <PasswordBox x:Name="ConfirmPinBox" Margin="0,0,0,14" />
+
+        <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+            <Button Style="{StaticResource SecondaryButton}" Content="Non ora" Width="100" Height="36" Margin="0,0,10,0" Click="Skip_Click" />
+            <Button x:Name="SaveButton" Content="Imposta PIN" Width="140" Height="36" Click="Save_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

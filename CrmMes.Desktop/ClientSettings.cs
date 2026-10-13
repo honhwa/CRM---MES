@@ -18,6 +18,17 @@ public sealed class ClientSettings
 
     public string ApiBaseUrl { get; set; } = DefaultApiBaseUrl;
 
+    /// <summary>Email dell'Admin che ha impostato il PIN di accesso offline su questo PC. Solo
+    /// un'etichetta per la schermata di accesso locale, non un segreto: il controllo vero è sull'hash.</summary>
+    public string? OfflineAdminEmail { get; set; }
+
+    public string? OfflineAdminPinHash { get; set; }
+
+    public string? OfflineAdminPinSalt { get; set; }
+
+    public bool HasOfflineAdminPin =>
+        !string.IsNullOrEmpty(OfflineAdminEmail) && !string.IsNullOrEmpty(OfflineAdminPinHash) && !string.IsNullOrEmpty(OfflineAdminPinSalt);
+
     public static ClientSettings Load() => Load(SettingsPath);
 
     /// <summary>False on a PC installed with "collegherò il server in seguito": the program then asks for

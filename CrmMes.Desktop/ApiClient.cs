@@ -2272,7 +2272,8 @@ public sealed record AuthDto(
     string Email,
     string Role,
     string? TwoFactorChallenge = null,
-    bool TwoFactorSetupRequired = false);
+    bool TwoFactorSetupRequired = false,
+    bool IsFullAdmin = false);
 
 public sealed record TwoFactorStatusDto(bool Enabled, bool Required, int RecoveryCodesLeft);
 

@@ -3901,6 +3901,9 @@ namespace CrmMes.Api.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsFullAdmin")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("LockoutEndsAt")
                         .HasColumnType("timestamp with time zone");
 

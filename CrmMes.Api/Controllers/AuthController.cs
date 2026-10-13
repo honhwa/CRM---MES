@@ -225,7 +225,11 @@ public class AuthController : ControllerBase
         {
             Name = name,
             Email = email,
-            Role = "Admin"
+            Role = "Admin",
+            // Il primo utente di un ambiente nuovo è chi lo installa/configura (fornitore): Admin pieno
+            // di default. Gli account Admin creati dopo (es. per il cliente) non lo sono, a meno che un
+            // Admin già pieno non glielo conceda esplicitamente (vedi UsersController.CreateUser).
+            IsFullAdmin = true
         };
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
         _dbContext.Users.Add(user);
@@ -513,7 +517,8 @@ public class AuthController : ControllerBase
             new Claim(ClaimTypes.Name, user.Name),
             new Claim(ClaimTypes.Email, user.Email),
             new Claim(ClaimTypes.Role, user.Role),
-            new Claim("channel", channel)
+            new Claim("channel", channel),
+            new Claim("isFullAdmin", user.IsFullAdmin ? "true" : "false")
         };
 
         // Compulsory for this role and not set up yet: the session is limited to setting it up.
@@ -553,7 +558,8 @@ public class AuthController : ControllerBase
             user.Name,
             user.Email,
             user.Role,
-            TwoFactorSetupRequired: setupRequired);
+            TwoFactorSetupRequired: setupRequired,
+            IsFullAdmin: user.IsFullAdmin);
     }
 
     private static string GenerateRefreshToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
@@ -578,7 +584,8 @@ public sealed record AuthResponse(
     string Email,
     string Role,
     string? TwoFactorChallenge = null,
-    bool TwoFactorSetupRequired = false);
+    bool TwoFactorSetupRequired = false,
+    bool IsFullAdmin = false);
 
 public sealed record TwoFactorLoginRequest(string? Challenge, string? Code);
 

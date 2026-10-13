@@ -22,6 +22,8 @@ public partial class MainWindow : Window
     private bool _canEditLayouts;
     private Guid _currentUserId;
     private string? _currentRole;
+    private bool _offlineAdminMode;
+    private bool _isFullAdmin;
     private string? _refreshToken;
     private readonly DispatcherTimer _refreshTimer = new();
     private PurchaseOrderSummaryDto? _selectedOrder;
@@ -281,10 +283,17 @@ public partial class MainWindow : Window
             ConnectionStatus.Text = "Programma non ancora collegato a un server";
             var window = new SettingsWindow(_apiClient) { Owner = this };
             window.ShowDialog();
+
+            // Chi installa senza collegare subito un server (es. da un cliente ancora senza connessione)
+            // non deve restare fuori dal programma: offerto qui, prima di sapere se la connessione
+            // riuscirà, così l'accesso offline esiste fin dal primo avvio, non solo dopo un login vero.
+            OfferOfflineAdminPinSetupIfNeeded();
+
             if (!window.SettingsChanged)
             {
                 LoginButton.IsEnabled = false;
                 LoginError.Text = "Collega il programma al server da \"Impostazioni server\" qui sotto.";
+                OfflineAdminLoginButton.Visibility = ClientSettings.Load().HasOfflineAdminPin ? Visibility.Visible : Visibility.Collapsed;
                 return;
             }
         }
@@ -346,6 +355,19 @@ public partial class MainWindow : Window
 
             ConnectionStatus.Text = healthy ? "Server online" : "Server non raggiungibile";
             LoginButton.IsEnabled = healthy;
+            // L'accesso locale ha senso solo quando il server non risponde e solo se su questo PC
+            // l'Admin ha già impostato un PIN offline in un login online precedente (vedi CompleteLogin).
+            OfflineAdminLoginButton.Visibility = !healthy && ClientSettings.Load().HasOfflineAdminPin
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+            if (healthy && _offlineAdminMode)
+            {
+                // Il server è tornato raggiungibile mentre si era entrati in modalità offline: quella
+                // sessione non è mai stata un vero accesso (nessun token, nessun ruolo verificato dal
+                // server), quindi si torna alla schermata di login vera invece di continuare a usarla.
+                EndOfflineAdminMode("Connessione ristabilita: accedi di nuovo con la tua password per continuare.");
+            }
 
             if (healthy)
             {
@@ -534,6 +556,8 @@ public partial class MainWindow : Window
 
     private void CompleteLogin(AuthDto auth, bool reloadMaterials = true)
     {
+        _offlineAdminMode = false;
+        _isFullAdmin = auth.IsFullAdmin;
         _apiClient.SetToken(auth.Token);
         _isAuthenticated = true;
         _currentUserId = auth.UserId;
@@ -553,13 +577,141 @@ public partial class MainWindow : Window
         ScheduleTokenRefresh(auth.ExpiresAt);
         LoginPanel.Visibility = Visibility.Collapsed;
         DashboardPanel.Visibility = Visibility.Visible;
+        OfflineModeBanner.Visibility = Visibility.Collapsed;
         ConnectionStatus.Text = $"Online: {auth.Name} ({auth.Role})";
-        SidebarSettingsButton.Visibility = auth.Role == "Admin" ? Visibility.Visible : Visibility.Collapsed;
+        // Impostazioni server e accesso offline restano riservate all'Admin pieno (il fornitore):
+        // l'Admin del cliente ha lo stesso ruolo "Admin" ma non queste due aree, vedi User.IsFullAdmin.
+        SidebarSettingsButton.Visibility = auth is { Role: "Admin", IsFullAdmin: true } ? Visibility.Visible : Visibility.Collapsed;
         if (reloadMaterials)
         {
             _ = SearchMaterialsAsync();
             _ = LoadCompanyProfileAsync(offerSetup: auth.Role == "Admin");
         }
+
+        if (auth.Role == "Admin")
+        {
+            if (auth.IsFullAdmin)
+            {
+                OfferOfflineAdminPinSetupIfNeeded(auth.Email);
+            }
+
+            _ = OfferToSendCompanyProfileDraftAsync();
+        }
+    }
+
+    /// <summary>Un solo invito per PC: se su questo PC nessun Admin ha ancora impostato il PIN di
+    /// accesso offline, lo propone adesso (facoltativo, vedi OfflineAdminPinSetupWindow). Chiamato sia al
+    /// primo avvio dopo l'installazione (email null: ancora nessun account reale) sia dopo un vero login
+    /// online come Admin (email reale) — il primo dei due momenti che arriva lo imposta, l'altro non
+    /// chiede più nulla finché quel PC non viene azzerato. Chi rifiuta non viene più interpellato finché
+    /// un altro Admin non fa login reale su questo PC — non è un invito ripetuto a ogni accesso.</summary>
+    private void OfferOfflineAdminPinSetupIfNeeded(string? email = null)
+    {
+        if (ClientSettings.Load().HasOfflineAdminPin)
+        {
+            return;
+        }
+
+        new OfflineAdminPinSetupWindow(email) { Owner = this }.ShowDialog();
+    }
+
+    /// <summary>Se durante un accesso offline precedente era stata preparata una configurazione
+    /// aziendale, ora che l'accesso è vero e online la propone per l'invio reale, con le stesse tre
+    /// chiamate che userebbe un salvataggio normale da CompanySetupWindow.</summary>
+    private async Task OfferToSendCompanyProfileDraftAsync()
+    {
+        var draft = CompanyProfileDraft.Load();
+        if (draft is null)
+        {
+            return;
+        }
+
+        if (MessageBox.Show(this,
+                $"Il {draft.SavedAtUtc.ToLocalTime():dd/MM/yyyy HH:mm}, in accesso offline, era stata preparata una configurazione aziendale mai inviata al server. Inviarla ora?",
+                "Configurazione aziendale offline", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            var saved = await _apiClient.SaveCompanyProfileAsync(draft.Profile);
+            if (draft.Departments.Count > 0)
+            {
+                await _apiClient.SaveCompanyStructureAsync(draft.Departments);
+            }
+
+            if (draft.Gs1CompanyPrefix is { } prefix && prefix != saved.Gs1CompanyPrefix)
+            {
+                await _apiClient.SetGs1PrefixAsync(prefix);
+            }
+
+            CompanyProfileDraft.Delete();
+            _apiClient.CompanyProfile = await _apiClient.GetCompanyProfileAsync();
+            ApplyEnabledModules();
+        }
+        catch (InvalidOperationException exception)
+        {
+            MessageBox.Show(this, $"Invio non riuscito, la bozza resta salvata su questo PC: {exception.Message}",
+                "Configurazione aziendale offline", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OfflineAdminLoginButton_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = ClientSettings.Load();
+        if (!settings.HasOfflineAdminPin)
+        {
+            return;
+        }
+
+        var window = new OfflineAdminLoginWindow(settings.OfflineAdminEmail!, settings.OfflineAdminPinHash!, settings.OfflineAdminPinSalt!) { Owner = this };
+        window.ShowDialog();
+        if (window.Verified)
+        {
+            CompleteOfflineAdminLogin(settings.OfflineAdminEmail!);
+        }
+    }
+
+    /// <summary>Non è un vero accesso: nessun token, nessuna sessione lato server. Serve solo a far
+    /// entrare l'Admin nel programma quando il server non risponde, per correggere l'indirizzo o
+    /// preparare la configurazione aziendale (vedi CompanyProfileDraft) — mai per vedere o modificare
+    /// dati reali, che restano del tutto inaccessibili senza connessione.</summary>
+    private void CompleteOfflineAdminLogin(string email)
+    {
+        _offlineAdminMode = true;
+        // Il PIN offline può esistere solo perché un Admin pieno l'ha impostato (dopo un login online
+        // reale, oppure al primo avvio prima di qualunque login): un Admin cliente non ha mai questa via.
+        _isFullAdmin = true;
+        _isAuthenticated = false;
+        _currentUserId = Guid.Empty;
+        _currentRole = "Admin";
+        _apiClient.SetToken(string.Empty); // nessuna sessione vera: niente token di accessi precedenti
+        _apiClient.CurrentRole = "Admin";
+        _apiClient.CompanyProfile = null;
+        LoginPanel.Visibility = Visibility.Collapsed;
+        DashboardPanel.Visibility = Visibility.Visible;
+        OfflineModeBanner.Visibility = Visibility.Visible;
+        ConnectionStatus.Text = $"Offline: {email} (Admin, accesso locale)";
+        CompanySetupButton.Visibility = Visibility.Visible;
+        SidebarSettingsButton.Visibility = Visibility.Visible;
+        ApplyEnabledModules();
+    }
+
+    /// <summary>Riporta alla schermata di login vera. Chiamato quando il server torna raggiungibile
+    /// mentre si era in accesso offline: quella sessione non ha mai avuto un token reale, quindi non ha
+    /// senso continuare a usarla invece di fare un accesso vero.</summary>
+    private void EndOfflineAdminMode(string message)
+    {
+        _offlineAdminMode = false;
+        _isFullAdmin = false;
+        _isAuthenticated = false;
+        _currentRole = null;
+        _apiClient.CurrentRole = null;
+        DashboardPanel.Visibility = Visibility.Collapsed;
+        OfflineModeBanner.Visibility = Visibility.Collapsed;
+        LoginPanel.Visibility = Visibility.Visible;
+        LoginError.Text = message;
     }
 
     /// <summary>Loads the company's industry and modules and adapts the sidebar. An Admin on a server
@@ -1233,7 +1385,7 @@ public partial class MainWindow : Window
 
     private void OpenCompanySetup()
     {
-        var window = new CompanySetupWindow(_apiClient) { Owner = this };
+        var window = new CompanySetupWindow(_apiClient, offlineMode: _offlineAdminMode) { Owner = this };
         window.ShowDialog();
         if (window.SavedProfile is { } profile)
         {

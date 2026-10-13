@@ -39,5 +39,12 @@ public class User
     public string? ExternalProvider { get; set; }
     public string? ExternalSubject { get; set; }
 
+    /// <summary>"Admin pieno" (il fornitore/installatore) contro "Admin cliente": entrambi hanno
+    /// Role == "Admin", ma solo un Admin pieno vede le aree riservate (oggi: impostazioni server e
+    /// connessione, accesso amministratore offline sul desktop — altre seguiranno in base ai test). Vero
+    /// di default solo per il primo utente (bootstrap): un Admin cliente non può impostarlo né su se
+    /// stesso né su altri, solo un Admin già pieno può farlo (vedi UsersController).</summary>
+    public bool IsFullAdmin { get; set; }
+
     public ICollection<Area> Areas { get; set; } = new List<Area>();
 }

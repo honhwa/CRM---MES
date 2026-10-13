@@ -53,6 +53,7 @@
                         <TextBlock x:Name="LoginError" Margin="0,12,0,0" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" />
                         <Button x:Name="LoginSettingsButton" Style="{StaticResource SidebarLinkButton}" Content="Impostazioni server" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" Margin="0,18,0,0" Click="SettingsButton_Click" />
                         <Button x:Name="LoginSupportButton" Style="{StaticResource SidebarLinkButton}" Content="Teleassistenza" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" Click="SupportButton_Click" />
+                        <Button x:Name="OfflineAdminLoginButton" Style="{StaticResource SidebarLinkButton}" Content="Accesso amministratore offline" Foreground="{StaticResource WarningTextBrush}" HorizontalAlignment="Center" Margin="0,14,0,0" Click="OfflineAdminLoginButton_Click" Visibility="Collapsed" />
                     </StackPanel>
                 </Border>
             </Grid>
@@ -357,6 +358,9 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Margin="0,0,0,26">
+                        <Border x:Name="OfflineModeBanner" Visibility="Collapsed" CornerRadius="8" Padding="14,10" Margin="0,0,0,14" Background="{StaticResource WarningSoftBrush}">
+                            <TextBlock Text="Modalità offline: nessuna connessione al server. Puoi correggere l'indirizzo del server e preparare la configurazione aziendale; tutto il resto richiede la connessione e un accesso vero con la tua password." TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource WarningTextBrush}" />
+                        </Border>
                         <Border x:Name="LicenseBanner" Visibility="Collapsed" CornerRadius="8" Padding="14,10" Margin="0,0,0,14" Background="{StaticResource WarningSoftBrush}">
                             <TextBlock x:Name="LicenseBannerText" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource WarningTextBrush}" />
                         </Border>

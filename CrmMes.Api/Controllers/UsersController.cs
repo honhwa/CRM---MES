@@ -34,7 +34,7 @@ public class UsersController : ControllerBase
     {
         var users = await _dbContext.Users.AsNoTracking()
             .OrderBy(user => user.Name)
-            .Select(user => new UserResponse(user.Id, user.Name, user.Email, user.Role, user.IsActive, user.CreatedAt, user.AnonymizedAt))
+            .Select(user => new UserResponse(user.Id, user.Name, user.Email, user.Role, user.IsActive, user.CreatedAt, user.AnonymizedAt, user.IsFullAdmin))
             .ToListAsync(cancellationToken);
         return Ok(users);
     }
@@ -60,6 +60,15 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = $"Ruolo non valido. Valori ammessi: {string.Join(", ", AllowedRoles)}." });
         }
 
+        // "Admin pieno" (fornitore) contro "Admin cliente": solo chi è già Admin pieno può concederlo a
+        // un altro utente. Senza questo controllo un Admin cliente potrebbe auto-promuoversi creando un
+        // account con lo stesso permesso, vanificando la distinzione.
+        if (request.IsFullAdmin && User.FindFirstValue("isFullAdmin") != "true")
+        {
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new { message = "Solo un Admin pieno può creare un altro Admin pieno." });
+        }
+
         if (await _dbContext.Users.AnyAsync(user => user.Email == email, cancellationToken))
         {
             return Conflict(new { message = "Esiste già un utente con questa email." });
@@ -75,7 +84,8 @@ public class UsersController : ControllerBase
         {
             Name = name,
             Email = email,
-            Role = role
+            Role = role,
+            IsFullAdmin = request.IsFullAdmin
         };
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
 
@@ -86,11 +96,11 @@ public class UsersController : ControllerBase
             EntityType = "User",
             EntityId = user.Id,
             UserName = User.FindFirstValue(ClaimTypes.Name),
-            Details = $"Utente {user.Email} creato con ruolo {user.Role}."
+            Details = $"Utente {user.Email} creato con ruolo {user.Role}{(user.IsFullAdmin ? " (Admin pieno)" : string.Empty)}."
         });
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return Created($"api/users/{user.Id}", new UserResponse(user.Id, user.Name, user.Email, user.Role, user.IsActive, user.CreatedAt));
+        return Created($"api/users/{user.Id}", new UserResponse(user.Id, user.Name, user.Email, user.Role, user.IsActive, user.CreatedAt, IsFullAdmin: user.IsFullAdmin));
     }
 
     /// <summary>Dettaglio utente in una sola chiamata: anagrafica + aree assegnate + attività recente
@@ -149,7 +159,7 @@ public class UsersController : ControllerBase
 
         var areas = user.Areas.OrderBy(a => a.Name).Select(a => new UserAreaResponse(a.Id, a.Name, a.Code)).ToList();
 
-        return Ok(new UserDetailResponse(user.Id, user.Name, user.Email, user.Role, user.IsActive, user.CreatedAt, areas, activity));
+        return Ok(new UserDetailResponse(user.Id, user.Name, user.Email, user.Role, user.IsActive, user.CreatedAt, areas, activity, user.IsFullAdmin));
     }
 
     /// <summary>Sets or replaces the short PIN a user types at the shop-floor terminal to identify
@@ -301,8 +311,8 @@ public class UsersController : ControllerBase
     }
 }
 
-public sealed record CreateUserRequest(string? Name, string? Email, string? Password, string? Role);
-public sealed record UserResponse(Guid Id, string Name, string Email, string Role, bool IsActive, DateTime CreatedAt, DateTime? AnonymizedAt = null);
+public sealed record CreateUserRequest(string? Name, string? Email, string? Password, string? Role, bool IsFullAdmin = false);
+public sealed record UserResponse(Guid Id, string Name, string Email, string Role, bool IsActive, DateTime CreatedAt, DateTime? AnonymizedAt = null, bool IsFullAdmin = false);
 public sealed record SetUserPinRequest(string? Pin);
 public sealed record ResetUserPasswordRequest(string? NewPassword);
 public sealed record IdentifyByPinRequest(string? Pin);
@@ -314,4 +324,4 @@ public sealed record UserActivityResponse(string WorkOrderCode, string Operation
 
 public sealed record UserDetailResponse(
     Guid Id, string Name, string Email, string Role, bool IsActive, DateTime CreatedAt,
-    List<UserAreaResponse> Areas, List<UserActivityResponse> RecentActivity);
+    List<UserAreaResponse> Areas, List<UserActivityResponse> RecentActivity, bool IsFullAdmin = false);

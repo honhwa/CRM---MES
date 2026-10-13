@@ -36,6 +36,17 @@ public class AuthBootstrapTests : IAsyncLifetime
         Assert.Equal("Admin", auth.Role);
     }
 
+    /// <summary>Chi installa/configura un ambiente nuovo (il primo utente) è "Admin pieno" di default:
+    /// vede le aree riservate (impostazioni server, accesso offline) che un Admin cliente creato dopo
+    /// non vede. Vedi User.IsFullAdmin.</summary>
+    [Fact]
+    public async Task Register_FirstUser_IsFullAdmin()
+    {
+        var auth = await TestAuth.RegisterAsync(_client, "Prima Persona", "prima@test.local", "Password123!");
+
+        Assert.True(auth.IsFullAdmin);
+    }
+
     [Fact]
     public async Task Register_SecondUser_IsRejected()
     {

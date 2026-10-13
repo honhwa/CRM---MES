@@ -137,4 +137,57 @@ public class UsersTests : IClassFixture<AdminSeededApiTestFixture>
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    /// <summary>"Admin pieno" (fornitore) contro "Admin cliente": il primo utente (bootstrap, qui
+    /// _fixture.Admin) è pieno di default e può concedere lo stesso permesso a un altro utente.</summary>
+    [Fact]
+    public async Task CreateUser_AsFullAdmin_CanGrantIsFullAdmin()
+    {
+        var email = $"fornitore-{Guid.NewGuid():N}@test.local";
+        var response = await _adminClient.PostAsJsonAsync("/api/users", new CreateUserRequest("Altro Fornitore", email, "Password123!", "Admin", IsFullAdmin: true));
+
+        response.EnsureSuccessStatusCode();
+        var created = await response.Content.ReadFromJsonAsync<UserResponse>();
+        Assert.True(created!.IsFullAdmin);
+    }
+
+    /// <summary>Un Admin cliente (IsFullAdmin=false) non può concedere il permesso a nessuno, nemmeno
+    /// creando un altro Admin: solo un Admin già pieno può farlo (vedi UsersController.CreateUser).</summary>
+    [Fact]
+    public async Task CreateUser_AsRestrictedAdmin_CannotGrantIsFullAdmin()
+    {
+        var restrictedAdmin = await TestAuth.CreateUserWithRoleAsync(_fixture.Factory, _fixture.Admin.Token, "Admin", "cliente-admin");
+        using var restrictedClient = _fixture.Factory.AuthenticatedClient(restrictedAdmin.Token);
+
+        var email = $"escalation-{Guid.NewGuid():N}@test.local";
+        var response = await restrictedClient.PostAsJsonAsync("/api/users", new CreateUserRequest("Tentativo", email, "Password123!", "Operator", IsFullAdmin: true));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>Un Admin cliente può comunque fare il suo lavoro ordinario di gestione utenti: la
+    /// restrizione riguarda solo la concessione del permesso pieno, non la creazione in sé.</summary>
+    [Fact]
+    public async Task CreateUser_AsRestrictedAdmin_CanStillCreateOrdinaryUsers()
+    {
+        var restrictedAdmin = await TestAuth.CreateUserWithRoleAsync(_fixture.Factory, _fixture.Admin.Token, "Admin", "cliente-admin2");
+        using var restrictedClient = _fixture.Factory.AuthenticatedClient(restrictedAdmin.Token);
+
+        var email = $"normale-{Guid.NewGuid():N}@test.local";
+        var response = await restrictedClient.PostAsJsonAsync("/api/users", new CreateUserRequest("Utente Normale", email, "Password123!", "Operator"));
+
+        response.EnsureSuccessStatusCode();
+        var created = await response.Content.ReadFromJsonAsync<UserResponse>();
+        Assert.False(created!.IsFullAdmin);
+    }
+
+    /// <summary>Un Admin creato dopo il bootstrap (non dal primo login) non è pieno di default — solo il
+    /// primo utente di un ambiente nuovo lo è, vedi AuthBootstrapTests.Register_FirstUser_IsFullAdmin.</summary>
+    [Fact]
+    public async Task CreateUser_AdminRoleWithoutFlag_DefaultsToNotFullAdmin()
+    {
+        var clientAdmin = await TestAuth.CreateUserWithRoleAsync(_fixture.Factory, _fixture.Admin.Token, "Admin", "cliente-default");
+
+        Assert.False(clientAdmin.IsFullAdmin);
+    }
 }

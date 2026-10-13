@@ -13,6 +13,7 @@ namespace CrmMes.Desktop;
 public partial class CompanySetupWindow : Window
 {
     private readonly ApiClient _apiClient;
+    private readonly bool _offlineMode;
     private readonly List<ActivityOption> _activities = [];
     private readonly List<ModuleOption> _modules = [];
     private readonly System.Collections.ObjectModel.ObservableCollection<DepartmentOption> _departments = [];
@@ -23,10 +24,15 @@ public partial class CompanySetupWindow : Window
 
     public CompanyProfileDto? SavedProfile { get; private set; }
 
-    public CompanySetupWindow(ApiClient apiClient)
+    /// <summary>offlineMode: niente server da interrogare. Il catalogo viene dall'ultima copia letta
+    /// online (CompanyCatalogCache) e "Salva configurazione" scrive una bozza locale invece di chiamare
+    /// l'API — vedi CompanyProfileDraft e MainWindow.OfferToSendCompanyProfileDraftAsync per l'invio
+    /// reale al prossimo accesso online.</summary>
+    public CompanySetupWindow(ApiClient apiClient, bool offlineMode = false)
     {
         InitializeComponent();
         _apiClient = apiClient;
+        _offlineMode = offlineMode;
         Loaded += async (_, _) => await LoadAsync();
     }
 
@@ -35,9 +41,31 @@ public partial class CompanySetupWindow : Window
         NextButton.IsEnabled = false;
         try
         {
-            var catalog = await _apiClient.GetCompanyCatalogAsync();
-            var profile = _apiClient.CompanyProfile ?? await _apiClient.GetCompanyProfileAsync();
-            var existing = await _apiClient.GetCompanyStructureAsync();
+            CompanyCatalogDto catalog;
+            CompanyProfileDto? profile;
+            IReadOnlyList<DepartmentDto> existing;
+            var draft = CompanyProfileDraft.Load();
+            if (_offlineMode)
+            {
+                catalog = CompanyCatalogCache.Load()
+                    ?? throw new InvalidOperationException("Nessun catalogo settori salvato su questo PC: serve almeno un accesso online riuscito prima di poter preparare la configurazione offline.");
+                profile = draft is null ? null : new CompanyProfileDto(
+                    true, draft.Profile.CompanyName, draft.Profile.VatNumber, draft.Profile.Address, draft.Profile.Phone, draft.Profile.Email,
+                    draft.Profile.Sector, draft.Profile.EnabledModules, draft.Gs1CompanyPrefix, draft.Profile.Activities);
+                existing = [];
+                OfflineNoteBanner.Visibility = Visibility.Visible;
+                OfflineNoteText.Text = draft is not null
+                    ? $"Modalità offline: stai modificando una bozza locale del {draft.SavedAtUtc.ToLocalTime():dd/MM/yyyy HH:mm}, non ancora inviata al server. \"Salva configurazione\" la aggiorna solo su questo PC."
+                    : "Modalità offline: \"Salva configurazione\" scrive solo su questo PC. Verrà proposta per l'invio reale al prossimo accesso online.";
+            }
+            else
+            {
+                catalog = await _apiClient.GetCompanyCatalogAsync();
+                CompanyCatalogCache.Save(catalog); // utilizzabile offline la prossima volta
+                profile = _apiClient.CompanyProfile ?? await _apiClient.GetCompanyProfileAsync();
+                existing = await _apiClient.GetCompanyStructureAsync();
+            }
+
             _departmentCatalog = catalog.Departments ?? [];
             _isConfigured = profile is { IsConfigured: true };
 
@@ -239,7 +267,7 @@ public partial class CompanySetupWindow : Window
         try
         {
             var activities = ChosenActivities.Select(a => a.Key).ToList();
-            SavedProfile = await _apiClient.SaveCompanyProfileAsync(new SaveCompanyProfileDto(
+            var profileToSave = new SaveCompanyProfileDto(
                 CompanyNameBox.Text.Trim(),
                 NullIfEmpty(VatNumberBox.Text),
                 NullIfEmpty(AddressBox.Text),
@@ -247,18 +275,26 @@ public partial class CompanySetupWindow : Window
                 NullIfEmpty(EmailBox.Text),
                 activities[0],
                 _modules.Where(module => module.IsChecked).Select(module => module.Key).ToList(),
-                activities));
-
+                activities);
             var departments = _departments.Where(d => d.IsIncluded)
                 .Select(d => new SaveDepartmentDto(d.Type, d.Name.Trim(), d.SiteId, d.CreateWorkCenters && d.HasWorkCenters))
                 .ToList();
+            var prefix = NullIfEmpty(Gs1PrefixBox.Text);
+
+            if (_offlineMode)
+            {
+                new CompanyProfileDraft(profileToSave, departments, prefix, DateTime.UtcNow).Save();
+                Close();
+                return;
+            }
+
+            SavedProfile = await _apiClient.SaveCompanyProfileAsync(profileToSave);
             if (departments.Count > 0)
             {
                 await _apiClient.SaveCompanyStructureAsync(departments);
             }
 
-            var prefix = Gs1PrefixBox.Text.Trim();
-            if (prefix.Length > 0 && prefix != SavedProfile.Gs1CompanyPrefix)
+            if (prefix is not null && prefix != SavedProfile.Gs1CompanyPrefix)
             {
                 await _apiClient.SetGs1PrefixAsync(prefix);
                 SavedProfile = SavedProfile with { Gs1CompanyPrefix = prefix };
