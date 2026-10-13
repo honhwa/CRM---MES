@@ -1,8 +1,8 @@
-﻿# Riepilogo sviluppi e stato del progetto
+﻿# Riepilogo sviluppi e stato del progetto (superato, valore storico)
 
-Aggiornato: 2026-10-02
+Aggiornato: 2026-10-02. **Spostato in `archivio/` il 13 ottobre 2026**: da quella data in poi lo stato del progetto, aggiornato a ogni sviluppo, vive solo in [STATO-PROGETTO.md](../STATO-PROGETTO.md) — questo file è rimasto fermo all'istantanea del 2 ottobre.
 
-Sintesi ad alto livello di cosa è stato costruito finora e cosa manca ancora. Per il dettaglio fase-per-fase con motivazioni tecniche vedi [DEVELOPMENT-PLAN.md](DEVELOPMENT-PLAN.md); per la mappa di file e architettura vedi [PROJECT-MAP.md](PROJECT-MAP.md). Per la sessione in corso e i passi successivi vedi [HANDOFF-CLAUDE.md](HANDOFF-CLAUDE.md) e [STATO-PROGETTO.md](STATO-PROGETTO.md).
+Sintesi ad alto livello di cosa è stato costruito finora e cosa manca ancora, **fino al 2 ottobre 2026**. Per il dettaglio fase-per-fase con motivazioni tecniche vedi [DEVELOPMENT-PLAN.md](DEVELOPMENT-PLAN.md) (anch'esso qui in archivio); per la mappa di file e architettura vedi [PROJECT-MAP.md](../PROJECT-MAP.md).
 
 ## Cosa è stato fatto
 
@@ -17,7 +17,7 @@ Sintesi ad alto livello di cosa è stato costruito finora e cosa manca ancora. P
 - **Dichiarazione origine UE del software** (perizia / Transizione 5.0 Allegato V): campi su profilo azienda, `GET/PUT api/company-profile/software-origin`, pagina web `/origine-software` stampabile; soglia ≥ 50% UE/SEE. Migrazione `AddSoftwareOriginDeclaration` su Neon; test `SoftwareOriginTests` 3/3.
 - **G10 — MRP base** (gate chiuso con nota): `GET api/procurement/mrp` esplode le distinte delle commesse aperte, sottrae giacenza e residuo ordini fornitore, propone quantità (anche MinStock). Web `/mrp`. Resta: creazione automatica ordini dalle proposte, lead time, esplosione multi-livello.
 - **G9–G15 e contro (02/10 sera, da pubblicare)**: provider HTTP SdI e stati; demo-feed macchine; SSO esterno predisposto; locale/valuta; assistente IA; MRP avanzato; ubicazioni/inventario; capacità finita; pacchetti settore persistiti; planning web, CAPA/taratura, presenze e Swagger; suite completa 623/623.
-- **Analisi di mercato** aggiornata in [ANALISI-MERCATO-MES.md](ANALISI-MERCATO-MES.md) (mercato IT ~120 M€ al 2027, iperammortamento, Made-in-EU).
+- **Analisi di mercato** aggiornata in [ANALISI-MERCATO-MES.md](../ANALISI-MERCATO-MES.md) (mercato IT ~120 M€ al 2027, iperammortamento, Made-in-EU).
 - Blocco G8/OEE/MRP/tema pubblicato su `main` il 02/10/2026; **G9–G15 ancora solo in working tree**.
 
 ### Piattaforma web, canali di accesso, basi per server del cliente e teleassistenza (2026-09-30, da pubblicare)
@@ -123,7 +123,7 @@ Sintesi ad alto livello di cosa è stato costruito finora e cosa manca ancora. P
 - Ruoli: `Admin`, `Warehouse`, `Purchasing`, `Operator`; bootstrap automatico del primo utente come Admin.
 - Audit log su utenti, distinte, ordini d'acquisto, sottoscorte.
 - Gestione errori centralizzata (ProblemDetails), 173 test di integrazione API su database Sqlite in-memory isolato, CI su GitHub Actions (build + test a ogni push/PR).
-- **Backup giornaliero e disaster recovery testato** (appena aggiunto): il piano Neon Free ha solo 6 ore di point-in-time recovery e non supporta gli snapshot programmati (verificato via API). Nuovo workflow (`backup.yml`) esegue un dump completo ogni notte, conservato 90 giorni; la procedura di ripristino è stata testata realmente (snapshot → ripristino su branch separato → confronto riga per riga con la produzione, nessuna differenza) e documentata in [DISASTER-RECOVERY.md](DISASTER-RECOVERY.md), inclusa una nota su un comportamento non ovvio di Neon scoperto durante il test.
+- **Backup giornaliero e disaster recovery testato** (appena aggiunto): il piano Neon Free ha solo 6 ore di point-in-time recovery e non supporta gli snapshot programmati (verificato via API). Nuovo workflow (`backup.yml`) esegue un dump completo ogni notte, conservato 90 giorni; la procedura di ripristino è stata testata realmente (snapshot → ripristino su branch separato → confronto riga per riga con la produzione, nessuna differenza) e documentata in [DISASTER-RECOVERY.md](../DISASTER-RECOVERY.md), inclusa una nota su un comportamento non ovvio di Neon scoperto durante il test.
 - **Interventi di sicurezza critica** (appena fatti, a seguito del confronto con i MES di mercato): il bypass del login per i test (`SkipLoginForTesting`, con credenziali hardcoded) era compilato anche nelle build Release — **compresa la release GitHub `v1.0.0` già pubblicata**, il cui eseguibile conteneva in chiaro le credenziali di un account admin reale. Ora è racchiuso in `#if DEBUG`, escluso a livello di compilatore da ogni build Release (verificato ispezionando il binario compilato: assente in Release, presente solo in Debug); l'asset compromesso è stato rimosso dalla release pubblicata. La registrazione pubblica (`POST /api/auth/register`) creava silenziosamente nuovi utenti `Operator` a chiunque conoscesse l'indirizzo dell'API, anche dopo il primo Admin — ora è **bootstrap-only**: funziona solo quando non esiste ancora nessun utente, dopodiché rifiuta con `403` e solo un Admin autenticato può creare altri utenti (`POST /api/users`, già così). L'auto-update del client, non essendo ancora firmato digitalmente, ora scarica e verifica un checksum SHA-256 pubblicato dalla pipeline di release insieme allo zip, rifiutando di installare un pacchetto che non corrisponde (corrotto o alterato).
 
 ### Magazzino e acquisti

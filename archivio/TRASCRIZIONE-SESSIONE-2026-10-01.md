@@ -1,6 +1,6 @@
 # Trascrizione sessione di sviluppo — 1 ottobre 2026
 
-Questo file è una traccia leggibile di cosa è stato chiesto e cosa è stato fatto in questa sessione di lavoro su Nicolò MES (CrmMes), con l'assistente Claude (modelli Opus 5.5 e Sonnet 5 nel corso della sessione). Non è un diario tecnico (quello è [RIEPILOGO-SVILUPPO.md](RIEPILOGO-SVILUPPO.md)) né il quadro complessivo del progetto (quello è [STATO-PROGETTO.md](STATO-PROGETTO.md)): serve solo a tenere memoria di come si è arrivati ai commit elencati, per chi deve ricostruire il percorso senza rileggere la chat originale.
+Questo file è una traccia leggibile di cosa è stato chiesto e cosa è stato fatto in questa sessione di lavoro su Nicolò MES (CrmMes), con l'assistente Claude (modelli Opus 5.5 e Sonnet 5 nel corso della sessione). Non è un diario tecnico (quello era [RIEPILOGO-SVILUPPO.md](RIEPILOGO-SVILUPPO.md), anch'esso ormai qui in archivio) né il quadro complessivo del progetto (quello è [STATO-PROGETTO.md](../STATO-PROGETTO.md)): serve solo a tenere memoria di come si è arrivati ai commit elencati, per chi deve ricostruire il percorso senza rileggere la chat originale.
 
 Le richieste dell'utente sono riportate come le ha scritte (in corsivo); il resto è un riassunto fedele di cosa è stato fatto, non una trascrizione parola per parola dei comandi eseguiti.
 

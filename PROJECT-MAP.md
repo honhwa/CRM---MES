@@ -2,7 +2,7 @@
 
 Aggiornata: 2026-10-06 (pulizia cartelle, vedi sezione in fondo).
 
-Questa è la mappa di **cosa c'è nel repository oggi**, non lo storico dell'MVP 2025. Lo stato funzionale (moduli, gap, versioni) sta in [STATO-PROGETTO.md](STATO-PROGETTO.md); il diario tecnico in [RIEPILOGO-SVILUPPO.md](RIEPILOGO-SVILUPPO.md).
+Questa è la mappa di **cosa c'è nel repository oggi**, non lo storico dell'MVP 2025. Lo stato funzionale (moduli, gap, versioni) e il diario tecnico stanno entrambi in [STATO-PROGETTO.md](STATO-PROGETTO.md) (il vecchio [RIEPILOGO-SVILUPPO.md](archivio/RIEPILOGO-SVILUPPO.md) è fermo al 2 ottobre 2026, spostato in `archivio/`).
 
 ## Cos'è
 
@@ -127,3 +127,15 @@ Verifica di cosa è necessario nella radice del repository.
 | `.dockerignore` righe `data/`, `public/` | **Rimosse** | Cartelle già cancellate il 6 ottobre, riferimento rimasto per errore |
 
 Dopo la pulizia la soluzione `CrmMes.sln` compila senza errori.
+
+## Pulizia del 13 ottobre 2026
+
+Richiesta esplicita: verifica di cosa non era più stato aggiornato nei documenti di progetto.
+
+| Cartella / file | Esito | Motivo |
+|---|---|---|
+| `RIEPILOGO-SVILUPPO.md` | **Spostato in `archivio/`** | Fermo all'istantanea del 2 ottobre 2026 mentre `STATO-PROGETTO.md` continuava ad aggiornarsi a ogni sviluppo; stesso destino di `HANDOFF-CLAUDE.md` il 9 ottobre |
+| Collegamenti rotti a `HANDOFF-CLAUDE.md` in `STATO-PROGETTO.md`, `ANALISI-MERCATO-MES.md` e nello stesso `RIEPILOGO-SVILUPPO.md` | **Corretti** | Puntavano ancora alla radice del repository da prima dello spostamento in `archivio/` del 9 ottobre: nessuno aveva aggiornato i riferimenti incrociati in quel momento |
+| Collegamento rotto a `DEVELOPMENT-PLAN.md` in `RIEPILOGO-SVILUPPO.md` | **Corretto** | Stesso problema, verso l'altro file spostato il 9 ottobre |
+
+Verificati sistematicamente tutti i collegamenti Markdown tra i documenti alla radice del repository: nessun altro rotto.

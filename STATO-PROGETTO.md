@@ -1,6 +1,6 @@
 ﻿# Stato del progetto: Nicolò MES (CrmMes)
 
-Aggiornato: **13 ottobre 2026 (logo aziendale e foto dei lotti — in attesa della migrazione in produzione)**. Diario tecnico: [RIEPILOGO-SVILUPPO.md](RIEPILOGO-SVILUPPO.md). Istruzioni operative: [HANDOFF-CLAUDE.md](HANDOFF-CLAUDE.md). Gate: [GATES.md](GATES.md). Priorità commerciali: [ANALISI-MERCATO-MES.md](ANALISI-MERCATO-MES.md) (sezione 8, "Cosa possiamo migliorare").
+Aggiornato: **13 ottobre 2026 (logo aziendale e foto dei lotti — in attesa della migrazione in produzione)**. Il diario tecnico ora è questo stesso file (la tabella più sotto, aggiornata a ogni sviluppo): [RIEPILOGO-SVILUPPO.md](archivio/RIEPILOGO-SVILUPPO.md) e [HANDOFF-CLAUDE.md](archivio/HANDOFF-CLAUDE.md) sono fermi al 2/9 ottobre, spostati in `archivio/` per valore storico. Gate: [GATES.md](GATES.md). Priorità commerciali: [ANALISI-MERCATO-MES.md](ANALISI-MERCATO-MES.md) (sezione 8, "Cosa possiamo migliorare").
 
 > **Punto della situazione**
 >
@@ -214,6 +214,6 @@ Step 1, 2, 3, 6 fatti e verificati (build pulita, 639/639 test, pushati su `main
 
 ## Decisioni in sospeso
 
-1. Acquisto dell'hosting a pagamento su Render e del certificato di firma: vedi le istruzioni in fondo a [RIEPILOGO-SVILUPPO.md](RIEPILOGO-SVILUPPO.md), sezione "Hosting e firma".
+1. Acquisto dell'hosting a pagamento su Render e del certificato di firma: vedi le istruzioni in [archivio/RIEPILOGO-SVILUPPO.md](archivio/RIEPILOGO-SVILUPPO.md), sezione "Hosting e firma" — ancora valide e in sospeso nonostante il resto del file sia superato.
 2. Invio delle fatture elettroniche: caricamento manuale gratuito sul portale "Fatture e Corrispettivi" oppure intermediario a pagamento (invio automatico).
 3. Eliminare il branch Neon `test-multisettore` (database di prova `backtest`, `webtest`, `webtest2`): approvato dal titolare, ma l'eliminazione va fatta da lui dalla console Neon (all'assistente è bloccata dalle regole di sicurezza).

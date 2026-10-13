@@ -184,4 +184,4 @@ Ordinate per impatto commerciale/competitivo, non per facilità. I primi tre non
 - [Tulip — prezzi](https://toolradar.com/tools/tulip/pricing)
 - [Siemens — pagina MES](https://www.siemens.com/it-it/solutions/manufacturing-execution-system-mes/)
 
-Stato prodotto: [STATO-PROGETTO.md](STATO-PROGETTO.md) · Gate: [GATES.md](GATES.md) · Handoff: [HANDOFF-CLAUDE.md](HANDOFF-CLAUDE.md) · Dettaglio competitor: [ANALISI-COMPETITOR-MES.md](ANALISI-COMPETITOR-MES.md).
+Stato prodotto: [STATO-PROGETTO.md](STATO-PROGETTO.md) · Gate: [GATES.md](GATES.md) · Handoff (storico, archiviato): [HANDOFF-CLAUDE.md](archivio/HANDOFF-CLAUDE.md) · Dettaglio competitor: [ANALISI-COMPETITOR-MES.md](ANALISI-COMPETITOR-MES.md).
