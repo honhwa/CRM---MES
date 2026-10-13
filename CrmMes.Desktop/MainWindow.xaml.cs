@@ -18,6 +18,7 @@ public partial class MainWindow : Window
 {
     private readonly ApiClient _apiClient = new();
     private readonly UpdateService _updateService = new();
+    private bool _updatePromptShownThisSession;
     private bool _isAuthenticated;
     private bool _canEditLayouts;
     private Guid _currentUserId;
@@ -3025,7 +3026,16 @@ public partial class MainWindow : Window
                 UpdateButton.Content = $"Aggiornamento disponibile: {release.TagName}";
                 UpdateButton.Foreground = (System.Windows.Media.Brush)FindResource("SidebarTextActiveBrush");
                 UpdateButton.FontWeight = FontWeights.Bold;
-                await AutoApplyUpdateAsync(release);
+                // Un solo controllo automatico per sessione: senza questo, il rinnovo periodico del
+                // token (ScheduleTokenRefresh/RefreshTimer_Tick chiama di nuovo CompleteLogin, che
+                // richiama questo metodo) riproponeva lo stesso aggiornamento più volte di seguito
+                // durante un uso prolungato. Il pulsante in barra laterale resta sempre disponibile
+                // per un controllo manuale esplicito.
+                if (!_updatePromptShownThisSession)
+                {
+                    _updatePromptShownThisSession = true;
+                    await AutoApplyUpdateAsync(release);
+                }
             }
         }
         catch
