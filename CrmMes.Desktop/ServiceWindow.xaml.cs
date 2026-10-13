@@ -50,8 +50,12 @@ public partial class ServiceWindow : Window
 
     public ServiceWindow(ApiClient apiClient)
     {
-        InitializeComponent();
+        // _apiClient va assegnato PRIMA di InitializeComponent(): il ComboBoxItem con IsSelected="True"
+        // in XAML fa scattare RequestStatusFilter_SelectionChanged già durante InitializeComponent(),
+        // cioè prima che il resto del costruttore giri — con _apiClient ancora null a quel punto,
+        // LoadRequestsAsync lo dereferenzia e va in NullReferenceException (trovato dal log client reale).
         _apiClient = apiClient;
+        InitializeComponent();
         _canManage = apiClient.CurrentRole is "Admin" or "Management" or "Sales";
         NewMachinePanel.Visibility = _canManage ? Visibility.Visible : Visibility.Collapsed;
         Loaded += async (_, _) => await LoadAllAsync();
@@ -76,7 +80,7 @@ public partial class ServiceWindow : Window
             RequestDetailPanel.Visibility = Visibility.Collapsed;
             _selectedRequest = null;
         }
-        catch (HttpRequestException exception)
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
         {
             ErrorText.Text = exception.Message;
         }
@@ -105,7 +109,7 @@ public partial class ServiceWindow : Window
                 NewMachineCustomerCombo.ItemsSource = customers;
             }
         }
-        catch (HttpRequestException exception)
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
         {
             ErrorText.Text = exception.Message;
         }
@@ -131,7 +135,7 @@ public partial class ServiceWindow : Window
             AddInterventionButton.IsEnabled = _selectedRequest.Status != "Closed";
             RequestDetailPanel.Visibility = Visibility.Visible;
         }
-        catch (HttpRequestException exception)
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
         {
             ErrorText.Text = exception.Message;
         }
@@ -157,7 +161,7 @@ public partial class ServiceWindow : Window
             CompletedBox.IsChecked = false;
             await LoadRequestsAsync();
         }
-        catch (HttpRequestException exception)
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
         {
             ErrorText.Text = exception.Message;
         }
@@ -175,7 +179,7 @@ public partial class ServiceWindow : Window
             await _apiClient.CloseServiceRequestAsync(_selectedRequest.Id);
             await LoadRequestsAsync();
         }
-        catch (HttpRequestException exception)
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
         {
             ErrorText.Text = exception.Message;
         }
@@ -193,7 +197,7 @@ public partial class ServiceWindow : Window
             await _apiClient.ReopenServiceRequestAsync(_selectedRequest.Id);
             await LoadRequestsAsync();
         }
-        catch (HttpRequestException exception)
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
         {
             ErrorText.Text = exception.Message;
         }
@@ -219,7 +223,7 @@ public partial class ServiceWindow : Window
             NewMachineWarrantyPicker.SelectedDate = null;
             await LoadMachinesAsync();
         }
-        catch (HttpRequestException exception)
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
         {
             ErrorText.Text = exception.Message;
         }
