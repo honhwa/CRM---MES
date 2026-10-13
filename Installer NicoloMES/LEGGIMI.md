@@ -1,7 +1,8 @@
 # Installer Nicolò MES — build locale
 
-Compilato in locale il 9 ottobre 2026, versione `1.9.2`. Suite completa: programma Windows + server,
-nello stesso installer — scegli i componenti nel wizard (per uso normale basta "Programma Nicolò MES").
+Compilato in locale il 13 ottobre 2026, versione `1.10.0` — stessa versione della release ufficiale
+`v1.10.0` su GitHub. Suite completa: programma Windows + server, nello stesso installer — scegli i
+componenti nel wizard (per uso normale basta "Programma Nicolò MES").
 
 ## Cosa fa al primo avvio
 
@@ -32,7 +33,9 @@ rete di un eseguibile nuovo e non firmato, durante la prima verifica di reputazi
 "Server non raggiungibile" nei primi minuti dopo l'installazione ma la rete risulta a posto (vedi
 `scripts/diagnostica-connessione-server.ps1` nel repository), riprova dopo qualche minuto.
 
-## Non è una release ufficiale
+## Corrisponde a una release ufficiale
 
-Non è pubblicato su GitHub Releases: non attiva l'aggiornamento automatico per chi ha già una versione
-precedente installata. È per uso locale/di prova. Le release ufficiali restano i tag `v*` su GitHub.
+Questa build è identica a quella pubblicata come release `v1.10.0` su GitHub (stesso codice, stessa
+versione): chi ha già una versione precedente installata riceve questo aggiornamento da solo, in
+automatico, al prossimo login (vedi l'aggiornamento automatico del programma). Questa copia nel
+repository serve solo per un'installazione diretta senza passare da GitHub.
