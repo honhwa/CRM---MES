@@ -92,6 +92,23 @@
                         </StackPanel>
                     </Grid>
                 </Border>
+
+                <TextBlock Text="L O G O   A Z I E N D A L E" Style="{StaticResource MicroLabel}" Margin="0,20,0,8" />
+                <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush0}" BorderThickness="1" Padding="16,12">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="96" Height="96" BorderBrush="{DynamicResource BorderBrush0}" BorderThickness="1" Background="White">
+                            <Image x:Name="LogoPreview" Stretch="Uniform" Margin="6" />
+                        </Border>
+                        <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="Mostrato sulla schermata di login e sul terminale di reparto quando inattivo." Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap" Width="420" Margin="0,0,0,10" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Carica logo" Style="{StaticResource SecondaryButton}" Width="130" Height="30" Margin="0,0,10,0" Click="UploadLogo_Click" />
+                                <Button x:Name="RemoveLogoButton" Content="Rimuovi logo" Style="{StaticResource SecondaryButton}" Width="130" Height="30" Click="RemoveLogo_Click" Visibility="Collapsed" />
+                            </StackPanel>
+                            <TextBlock x:Name="LogoStatusText" Foreground="{DynamicResource DangerBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
     </DockPanel>

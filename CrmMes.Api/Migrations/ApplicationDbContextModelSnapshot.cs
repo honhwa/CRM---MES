@@ -569,6 +569,9 @@ namespace CrmMes.Api.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.Property<Guid?>("LogoFileId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Phone")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -3535,6 +3538,35 @@ namespace CrmMes.Api.Migrations
                     b.ToTable("SiteReportMaterials");
                 });
 
+            modelBuilder.Entity("CrmMes.Core.Models.StoredFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UploadedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("StoredFiles");
+                });
+
             modelBuilder.Entity("CrmMes.Core.Models.SubcontractingReturn", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4197,6 +4229,41 @@ namespace CrmMes.Api.Migrations
                     b.HasIndex("QuoteId");
 
                     b.ToTable("WorkOrders");
+                });
+
+            modelBuilder.Entity("CrmMes.Core.Models.WorkOrderAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Caption")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UploadedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("WorkOrderId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("WorkOrderId");
+
+                    b.ToTable("WorkOrderAttachments");
                 });
 
             modelBuilder.Entity("CrmMes.Core.Models.WorkOrderOperation", b =>
@@ -5399,6 +5466,25 @@ namespace CrmMes.Api.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("Quote");
+                });
+
+            modelBuilder.Entity("CrmMes.Core.Models.WorkOrderAttachment", b =>
+                {
+                    b.HasOne("CrmMes.Core.Models.StoredFile", "File")
+                        .WithMany()
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CrmMes.Core.Models.WorkOrder", "WorkOrder")
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("File");
+
+                    b.Navigation("WorkOrder");
                 });
 
             modelBuilder.Entity("CrmMes.Core.Models.WorkOrderOperation", b =>

@@ -70,6 +70,10 @@ public class CompanyProfile
     /// See UiTheme in CrmMes.Api.</summary>
     public string UiTheme { get; set; } = string.Empty;
 
+    /// <summary>Logo aziendale (vedi StoredFile). Null finché l'Admin non ne carica uno: in quel caso le
+    /// schermate che lo mostrerebbero (es. terminale di reparto inattivo) restano senza, non è un errore.</summary>
+    public Guid? LogoFileId { get; set; }
+
     /// <summary>BCP 47 locale for UI and formats (default Italian).</summary>
     public string Locale { get; set; } = "it-IT";
 

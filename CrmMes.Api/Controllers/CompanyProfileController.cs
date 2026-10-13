@@ -17,11 +17,13 @@ public class CompanyProfileController : ControllerBase
 {
     private readonly ApplicationDbContext _dbContext;
     private readonly LicenseState _license;
+    private readonly IFileStorage _files;
 
-    public CompanyProfileController(ApplicationDbContext dbContext, LicenseState license)
+    public CompanyProfileController(ApplicationDbContext dbContext, LicenseState license, IFileStorage files)
     {
         _dbContext = dbContext;
         _license = license;
+        _files = files;
     }
 
     /// <summary>The profile, or IsConfigured=false with every module enabled when nobody has configured
@@ -315,6 +317,77 @@ public class CompanyProfileController : ControllerBase
     {
         var stored = await _dbContext.CompanyProfiles.AsNoTracking().Select(p => p.UiTheme).FirstOrDefaultAsync(cancellationToken);
         return Ok(ToThemeResponse(UiTheme.Parse(stored)));
+    }
+
+    /// <summary>Logo aziendale: leggibile senza accesso come il tema (serve alla schermata di login e alla
+    /// schermata inattiva del terminale di reparto, prima o senza alcun login). 404 se non ancora caricato
+    /// — non è un errore, solo "nessun logo impostato".</summary>
+    [AllowAnonymous]
+    [HttpGet("logo")]
+    public async Task<IActionResult> GetLogo(CancellationToken cancellationToken = default)
+    {
+        var logoFileId = await _dbContext.CompanyProfiles.AsNoTracking().Select(p => p.LogoFileId).FirstOrDefaultAsync(cancellationToken);
+        if (logoFileId is not { } id)
+        {
+            return NotFound();
+        }
+
+        var file = await _files.GetAsync(id, cancellationToken);
+        return file is null ? NotFound() : File(file.Content, file.ContentType);
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpPut("logo")]
+    [RequestSizeLimit(ImageUploadRules.MaxSizeBytes)]
+    public async Task<IActionResult> SaveLogo(IFormFile file, CancellationToken cancellationToken = default)
+    {
+        var error = ImageUploadRules.Validate(file?.ContentType, (int)(file?.Length ?? 0));
+        if (error is not null)
+        {
+            return BadRequest(new { message = error });
+        }
+
+        using var stream = new MemoryStream();
+        await file!.CopyToAsync(stream, cancellationToken);
+
+        var profile = await _dbContext.CompanyProfiles.FirstOrDefaultAsync(cancellationToken);
+        if (profile is null)
+        {
+            profile = new CompanyProfile { ConfiguredAt = DateTime.UtcNow };
+            _dbContext.CompanyProfiles.Add(profile);
+        }
+
+        var previousLogoId = profile.LogoFileId;
+        var newLogoId = await _files.SaveAsync(stream.ToArray(), file.ContentType, User.FindFirstValue(ClaimTypes.Name), cancellationToken);
+        profile.LogoFileId = newLogoId;
+        profile.UpdatedAt = DateTime.UtcNow;
+        AuditTrail.Add(_dbContext, User, "CompanyLogoChanged", "CompanyProfile", profile.Id, "Logo aziendale aggiornato.");
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (previousLogoId is { } oldId)
+        {
+            await _files.DeleteAsync(oldId, cancellationToken);
+        }
+
+        return NoContent();
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpDelete("logo")]
+    public async Task<IActionResult> DeleteLogo(CancellationToken cancellationToken = default)
+    {
+        var profile = await _dbContext.CompanyProfiles.FirstOrDefaultAsync(cancellationToken);
+        if (profile?.LogoFileId is not { } id)
+        {
+            return NotFound();
+        }
+
+        profile.LogoFileId = null;
+        profile.UpdatedAt = DateTime.UtcNow;
+        AuditTrail.Add(_dbContext, User, "CompanyLogoRemoved", "CompanyProfile", profile.Id, "Logo aziendale rimosso.");
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _files.DeleteAsync(id, cancellationToken);
+        return NoContent();
     }
 
     [Authorize(Policy = "AdminOnly")]

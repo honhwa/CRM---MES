@@ -1469,6 +1469,70 @@ public sealed class ApiClient
         => SendAsync<ServiceRequestDetailDto>(HttpMethod.Post, $"api/service/requests/{requestId}/interventions",
             new { technicianName, scheduledAt = (DateTime?)null, completed, hours, inWarranty, description, materialsUsed, notes = (string?)null }, cancellationToken);
 
+    // ---------- Logo aziendale e foto dei lotti ----------
+
+    /// <summary>Null se nessun logo è mai stato caricato (404 dal server): non è un errore.</summary>
+    public async Task<(byte[] Content, string ContentType)?> GetCompanyLogoAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync("api/company-profile/logo", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        await EnsureSuccessAsync(response, cancellationToken);
+        return (await response.Content.ReadAsByteArrayAsync(cancellationToken), response.Content.Headers.ContentType?.MediaType ?? "image/png");
+    }
+
+    public async Task SaveCompanyLogoAsync(byte[] content, string contentType, string fileName, CancellationToken cancellationToken = default)
+    {
+        using var form = new MultipartFormDataContent();
+        var filePart = new ByteArrayContent(content);
+        filePart.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(filePart, "file", fileName);
+        using var response = await _httpClient.PutAsync("api/company-profile/logo", form, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task DeleteCompanyLogoAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync("api/company-profile/logo", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<WorkOrderAttachmentDto>> GetWorkOrderAttachmentsAsync(Guid workOrderId, CancellationToken cancellationToken = default)
+        => GetAsync<WorkOrderAttachmentDto>($"api/work-orders/{workOrderId}/attachments", cancellationToken);
+
+    public async Task<byte[]> GetWorkOrderAttachmentContentAsync(Guid workOrderId, Guid attachmentId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"api/work-orders/{workOrderId}/attachments/{attachmentId}/content", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    public async Task UploadWorkOrderAttachmentAsync(
+        Guid workOrderId, byte[] content, string contentType, string fileName, string kind, string? caption, CancellationToken cancellationToken = default)
+    {
+        using var form = new MultipartFormDataContent();
+        var filePart = new ByteArrayContent(content);
+        filePart.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(filePart, "file", fileName);
+        form.Add(new StringContent(kind), "kind");
+        if (!string.IsNullOrWhiteSpace(caption))
+        {
+            form.Add(new StringContent(caption), "caption");
+        }
+
+        using var response = await _httpClient.PostAsync($"api/work-orders/{workOrderId}/attachments", form, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task DeleteWorkOrderAttachmentAsync(Guid workOrderId, Guid attachmentId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync($"api/work-orders/{workOrderId}/attachments/{attachmentId}", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     // ---------- Flussi di dati ----------
 
     public Task<IReadOnlyList<DataFlowEventDto>> GetDataFlowEventsAsync(CancellationToken cancellationToken = default)
@@ -2823,6 +2887,14 @@ public sealed record WorkCenterTemplateDto(string Code, string Name);
 public sealed record DepartmentCatalogDto(string Key, string Name, string Description, List<string> Modules, List<WorkCenterTemplateDto> WorkCenters);
 
 public sealed record DepartmentDto(Guid Id, string Type, string Name, string Code, Guid? SiteId, int WorkCenterCount);
+
+public sealed record WorkOrderAttachmentDto(Guid Id, string Kind, string? Caption, string? UploadedBy, DateTime UploadedAt);
+
+public static class WorkOrderAttachmentKinds
+{
+    public const string Quality = "quality";
+    public const string Instructions = "instructions";
+}
 
 public sealed record DataFlowEventFieldDto(string Key, string Label);
 

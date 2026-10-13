@@ -98,6 +98,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<InstrumentCalibration> InstrumentCalibrations => Set<InstrumentCalibration>();
     public DbSet<CorrectiveAction> CorrectiveActions => Set<CorrectiveAction>();
     public DbSet<AttendancePunch> AttendancePunches => Set<AttendancePunch>();
+    public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
+    public DbSet<WorkOrderAttachment> WorkOrderAttachments => Set<WorkOrderAttachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -315,6 +317,16 @@ public class ApplicationDbContext : DbContext
         });
 
         modelBuilder.Entity<TechnicalDocumentContent>(entity => entity.HasKey(c => c.TechnicalDocumentId));
+
+        modelBuilder.Entity<StoredFile>(entity => entity.Property(f => f.ContentType).HasMaxLength(120));
+
+        modelBuilder.Entity<WorkOrderAttachment>(entity =>
+        {
+            entity.Property(a => a.Kind).HasMaxLength(20);
+            entity.HasIndex(a => a.WorkOrderId);
+            entity.HasOne(a => a.WorkOrder).WithMany().HasForeignKey(a => a.WorkOrderId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(a => a.File).WithMany().HasForeignKey(a => a.FileId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<ProductRevision>(entity =>
         {

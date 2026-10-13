@@ -60,6 +60,83 @@ public partial class AppearanceWindow : Window
         {
             _loading = false;
         }
+
+        await LoadLogoAsync();
+    }
+
+    private async Task LoadLogoAsync()
+    {
+        try
+        {
+            var logo = await _apiClient.GetCompanyLogoAsync();
+            LogoPreview.Source = logo is null ? null : ToImage(logo.Value.Content);
+            RemoveLogoButton.Visibility = logo is null ? Visibility.Collapsed : Visibility.Visible;
+        }
+        catch (Exception exception) when (exception is System.Net.Http.HttpRequestException or InvalidOperationException)
+        {
+            // Il logo è un dettaglio d'aspetto: un errore qui non deve impedire di modificare i colori.
+        }
+    }
+
+    private static System.Windows.Media.Imaging.BitmapImage ToImage(byte[] bytes)
+    {
+        var image = new System.Windows.Media.Imaging.BitmapImage();
+        using var stream = new System.IO.MemoryStream(bytes);
+        image.BeginInit();
+        image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
+    }
+
+    private async void UploadLogo_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Scegli il logo",
+            Filter = "Immagini (*.jpg;*.jpeg;*.png;*.webp)|*.jpg;*.jpeg;*.png;*.webp",
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        LogoStatusText.Text = string.Empty;
+        try
+        {
+            var bytes = await System.IO.File.ReadAllBytesAsync(dialog.FileName);
+            var contentType = System.IO.Path.GetExtension(dialog.FileName).ToLowerInvariant() switch
+            {
+                ".png" => "image/png",
+                ".webp" => "image/webp",
+                _ => "image/jpeg",
+            };
+            await _apiClient.SaveCompanyLogoAsync(bytes, contentType, System.IO.Path.GetFileName(dialog.FileName));
+            await LoadLogoAsync();
+        }
+        catch (Exception exception) when (exception is System.Net.Http.HttpRequestException or InvalidOperationException)
+        {
+            LogoStatusText.Text = exception.Message;
+        }
+    }
+
+    private async void RemoveLogo_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show(this, "Rimuovere il logo aziendale?", "Logo aziendale", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            await _apiClient.DeleteCompanyLogoAsync();
+            await LoadLogoAsync();
+        }
+        catch (Exception exception) when (exception is System.Net.Http.HttpRequestException or InvalidOperationException)
+        {
+            LogoStatusText.Text = exception.Message;
+        }
     }
 
     private void BuildPresets(UiThemeDto theme)

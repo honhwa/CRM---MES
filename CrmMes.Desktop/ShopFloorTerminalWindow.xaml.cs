@@ -319,6 +319,16 @@ public partial class ShopFloorTerminalWindow : Window
         new LotMaterialsWindow(_apiClient, _order.Id, $"{_order.Code} · lotto {_order.ProductLotNumber}") { Owner = this }.ShowDialog();
     }
 
+    private void LotAttachments_Click(object sender, RoutedEventArgs e)
+    {
+        if (_order is null)
+        {
+            return;
+        }
+
+        new LotAttachmentsWindow(_apiClient, _order.Id, $"{_order.Code} · lotto {_order.ProductLotNumber}") { Owner = this }.ShowDialog();
+    }
+
     private void ApplyOrderToUi()
     {
         if (_order is null)
