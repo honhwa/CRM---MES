@@ -16,8 +16,8 @@ Aggiornato: **13 ottobre 2026 (schermata inattiva del terminale di reparto)**. I
 - **Cos'è**: gestionale di produzione (MES) con parte commerciale e documentale, per piccole e medie aziende manifatturiere. Nato per un quadrista, oggi si configura per cinque settori.
 - **Versione pubblicata**: v1.7.0 (30/09/2026) + push 02/10 con G8/OEE/MRP/tema. I PC si aggiornano da soli dalle release GitHub.
 - **Architettura**: client Windows (WPF, .NET 8) + API web (ASP.NET Core 8) su Render + database Postgres su Neon. Stessa API per `/app/` (Blazor) e `/tecnici/`.
-- **Test automatici** (13/10/2026): **720/720** verdi — API 461, Desktop 131, Web 110, Console 18.
-- **Backtest end-to-end** (30/09/2026): 68/68 su DB vuoto isolato.
+- **Test automatici** (13/10/2026): **753/753** verdi — API 476, Desktop 149, Web 110, Console 18.
+- **Backtest end-to-end**: 68/68 il 30/09/2026 (tutti i moduli), 49/49 il 13/10/2026 (mirato: novità di oggi + cybersecurity) — entrambi su DB vuoto isolato, dettaglio in "Backtest" più sotto.
 - **Uso attuale**: interno, un'azienda con due sedi.
 
 ## Cosa c'è
@@ -109,6 +109,28 @@ Ultima esecuzione: 30/09/2026, API avviata in locale su un database dedicato e v
 Difetto trovato e corretto durante il backtest: nei PDF generati le coppie di lettere "ff", "fi", "fl", "tt" venivano disegnate come un solo simbolo tipografico; copiando un codice dal PDF alcune lettere sparivano. Ora le legature sono disattivate in tutti i PDF del client, con test dedicato.
 
 Non ancora provato: la pagina web dei tecnici dal browser con accesso reale (il login automatico con credenziali è bloccato dalle regole di sicurezza dell'assistente); i suoi flussi sono coperti dai test automatici e dal backtest sulle stesse API.
+
+### Esecuzione del 13/10/2026 (mirata: novità di oggi + cybersecurity)
+
+API in locale su un branch Neon di prova (`ui-verification-temp`) svuotato e portato alla produzione attuale prima del test, poi ripulito di nuovo dopo — nessun dato reale toccato. A differenza del backtest del 30/09 (tutti i moduli), questo giro era mirato: le novità di oggi (Admin pieno/Admin cliente, flussi di dati, logo e foto dei lotti) più una sezione cybersecurity più ampia, non una riverifica di ogni modulo (restano validi i risultati del 30/09 per fatturazione, alimentare, cantiere, Industria 4.0, non ritoccati oggi). Esito: **49/49 passi superati** al primo giro pulito.
+
+| Area | Passi | Cosa è stato verificato |
+|---|---|---|
+| Debug | 3 | `/health` risponde corretto; rotta inesistente → 404 pulito; corpo non valido → 400 con messaggio (mai una pagina di errore grezza) |
+| Autenticazione | 3 | Primo utente diventa Admin pieno; registrazione pubblica chiusa dopo il bootstrap |
+| Cybersecurity | 8 | Password sbagliata → 401; nessun token → 401; **JWT manomesso → 401**; **5 tentativi sbagliati → account bloccato (429) anche con la password giusta al sesto**; Operatore non può creare utenti, clienti, né cambiare il logo (403 su ciascuno) |
+| Configurazione | 2 | Profilo azienda non configurato di default (tutti i moduli attivi); salvataggio riuscito |
+| Admin pieno/cliente | 4 | Admin pieno crea un Admin cliente non pieno di default; login riflette `IsFullAdmin=false`; **un Admin cliente non può concedersi né concedere `IsFullAdmin` (403)**; può comunque creare utenti ordinari |
+| Ruoli | 5 | Creazione e login per Management, Warehouse, Purchasing, Sales, Operator |
+| Produzione | 10 | Materiale, prodotto, distinta, ciclo, commessa, verifica materiali previsti/disponibili, rilascio, lettura fasi, avvio e completamento fase da Operatore |
+| Vendite / Acquisti | 3 | Cliente, fornitore, ordine fornitore |
+| Flussi di dati | 3 | I due eventi cablati sono nel registro; flusso creato su "DDT emesso"; **l'emissione reale di un DDT genera davvero la notifica configurata** |
+| Spedizioni | 2 | Bozza DDT, emissione con numero assegnato |
+| Deposito file (logo e foto lotti) | 6 | Logo assente → 404 anche senza login; caricamento riservato all'Admin pieno (Operatore → 403); lettura senza login con i byte corretti; foto caricata su un lotto, elencata e cancellata |
+
+**Scoperta (non un difetto, conferma che la protezione funziona)**: un secondo giro lanciato subito dopo il primo ha fatto scattare il limite di richieste per indirizzo IP sul login (20 al minuto, pensato contro i tentativi ripetuti di indovinare una password) — tutti i fallimenti di quel secondo giro erano 401/429 dovuti al limite stesso, non difetti dell'applicazione. Il primo giro, pulito, resta il risultato valido.
+
+**Non provato in questo giro**: clic reali nell'interfaccia (web o programma desktop) — solo chiamate dirette alle API, come il resto di questo backtest mirato; la schermata inattiva del terminale e l'accesso amministratore offline (entrambi solo lato desktop, non raggiungibili dall'assistente) restano verificati solo a livello di codice, non di interazione reale.
 
 ## Cosa manca
 
