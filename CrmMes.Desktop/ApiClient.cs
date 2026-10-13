@@ -1469,6 +1469,26 @@ public sealed class ApiClient
         => SendAsync<ServiceRequestDetailDto>(HttpMethod.Post, $"api/service/requests/{requestId}/interventions",
             new { technicianName, scheduledAt = (DateTime?)null, completed, hours, inWarranty, description, materialsUsed, notes = (string?)null }, cancellationToken);
 
+    // ---------- Flussi di dati ----------
+
+    public Task<IReadOnlyList<DataFlowEventDto>> GetDataFlowEventsAsync(CancellationToken cancellationToken = default)
+        => GetAsync<DataFlowEventDto>("api/data-flows/events", cancellationToken);
+
+    public Task<IReadOnlyList<DataFlowDto>> GetDataFlowsAsync(CancellationToken cancellationToken = default)
+        => GetAsync<DataFlowDto>("api/data-flows", cancellationToken);
+
+    public Task<DataFlowDto> CreateDataFlowAsync(SaveDataFlowDto flow, CancellationToken cancellationToken = default)
+        => SendAsync<DataFlowDto>(HttpMethod.Post, "api/data-flows", flow, cancellationToken);
+
+    public Task<DataFlowDto> UpdateDataFlowAsync(Guid id, SaveDataFlowDto flow, CancellationToken cancellationToken = default)
+        => SendAsync<DataFlowDto>(HttpMethod.Put, $"api/data-flows/{id}", flow, cancellationToken);
+
+    public async Task DeleteDataFlowAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync($"api/data-flows/{id}", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     // ---------- Collaudo macchine e CE ----------
 
     public async Task<MachineDossierDto> GetMachineDossierAsync(Guid workOrderId, CancellationToken cancellationToken = default)
@@ -2803,6 +2823,24 @@ public sealed record WorkCenterTemplateDto(string Code, string Name);
 public sealed record DepartmentCatalogDto(string Key, string Name, string Description, List<string> Modules, List<WorkCenterTemplateDto> WorkCenters);
 
 public sealed record DepartmentDto(Guid Id, string Type, string Name, string Code, Guid? SiteId, int WorkCenterCount);
+
+public sealed record DataFlowEventFieldDto(string Key, string Label);
+
+public sealed record DataFlowEventDto(string Key, string Name, List<DataFlowEventFieldDto> Fields);
+
+public sealed record DataFlowStepDto(Guid Id, int Order, string Type, string TargetRole, string? MessageTemplate);
+
+public sealed record DataFlowDto(Guid Id, string Name, string TriggerEventKey, bool Enabled, List<DataFlowStepDto> Steps);
+
+public sealed record SaveDataFlowStepDto(string Type, string TargetRole, string? MessageTemplate);
+
+public sealed record SaveDataFlowDto(string Name, string TriggerEventKey, bool Enabled, List<SaveDataFlowStepDto> Steps);
+
+public static class DataFlowStepTypes
+{
+    public const string NotifyRole = "NotifyRole";
+    public const string RequireApproval = "RequireApproval";
+}
 
 public sealed record SaveDepartmentDto(string Type, string Name, Guid? SiteId, bool CreateWorkCenters);
 

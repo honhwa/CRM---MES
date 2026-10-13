@@ -309,6 +309,16 @@ public partial class ShopFloorTerminalWindow : Window
 
     private void CopyLot_Click(object sender, RoutedEventArgs e) => CopySupport.Copy(_order?.ProductLotNumber);
 
+    private void LotMaterials_Click(object sender, RoutedEventArgs e)
+    {
+        if (_order is null)
+        {
+            return;
+        }
+
+        new LotMaterialsWindow(_apiClient, _order.Id, $"{_order.Code} · lotto {_order.ProductLotNumber}") { Owner = this }.ShowDialog();
+    }
+
     private void ApplyOrderToUi()
     {
         if (_order is null)

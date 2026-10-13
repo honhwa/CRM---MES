@@ -521,6 +521,9 @@ public partial class MainWindow : Window
     private void LayoutButton_Click(object sender, RoutedEventArgs e) =>
         new LayoutEditorWindow(_apiClient) { Owner = this }.ShowDialog();
 
+    private void DataFlowsButton_Click(object sender, RoutedEventArgs e) =>
+        new DataFlowsWindow(_apiClient) { Owner = this }.ShowDialog();
+
     private void EnergyButton_Click(object sender, RoutedEventArgs e) =>
         new EnergyWindow(_apiClient) { Owner = this }.ShowDialog();
 
@@ -805,6 +808,7 @@ public partial class MainWindow : Window
         ServiceButton.Visibility = Show(_apiClient.IsModuleEnabled("service"));
         EnergyButton.Visibility = Show(_apiClient.IsModuleEnabled("energy-monitoring"));
         LayoutButton.Visibility = Show(_canEditLayouts);
+        DataFlowsButton.Visibility = Show(_apiClient.CurrentRole == "Admin");
 
         // A section just switched off may be the page on screen: fall back to the first one still shown.
         if (FindCheckedNavItem() is { Visibility: not Visibility.Visible } hidden)
@@ -3030,23 +3034,39 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Aggiornamento automatico: appena il programma trova all'accesso una versione più nuova, la
-    /// installa da sola, senza chiedere conferma — l'utente non deve fare nulla. È anche il momento più
-    /// sicuro per farlo: subito dopo il login non c'è ancora lavoro in corso da perdere quando il programma
-    /// si chiude per aggiornarsi. Se qualcosa va storto (rete assente, installer già occupato, checksum che
-    /// non corrisponde) fallisce in silenzio: resta solo il pulsante già acceso in barra laterale, da
-    /// cliccare a mano quando si vuole — lì la conferma resta esplicita.</summary>
+    /// <summary>Appena il programma trova all'accesso una versione più nuova, la scarica e la verifica da
+    /// sola, senza che l'utente debba fare nulla — ma poi chiede conferma prima di chiudere e installare,
+    /// invece di farlo in automatico: l'utente può scegliere di procedere subito o aspettare un momento più
+    /// comodo. Se qualcosa va storto nel download (rete assente, checksum che non corrisponde) fallisce in
+    /// silenzio: resta solo il pulsante già acceso in barra laterale, da cliccare a mano quando si vuole.</summary>
     private async Task AutoApplyUpdateAsync(ReleaseInfo release)
     {
+        string setupPath;
         try
         {
-            BusyIndicator.Text = $"Aggiornamento automatico a {release.TagName} in corso...";
-            await _updateService.StartUpdateAsync(release);
-            Application.Current.Shutdown();
+            BusyIndicator.Text = $"Download dell'aggiornamento {release.TagName} in corso...";
+            setupPath = await _updateService.DownloadAsync(release);
         }
         catch
         {
+            return;
+        }
+        finally
+        {
             BusyIndicator.Text = string.Empty;
+        }
+
+        var notes = release.Notes.Length > 800 ? release.Notes[..800] + "…" : release.Notes;
+        var result = MessageBox.Show(
+            $"L'aggiornamento alla versione {release.TagName} è stato scaricato e verificato (installata: {_updateService.CurrentVersion.ToString(3)}).\n\n{notes}\n\n" +
+            "Installarlo ora? Il programma si chiude, si aggiorna e si riapre da solo. Scegliendo \"No\" puoi installarlo più tardi dal pulsante in barra laterale.",
+            "Aggiornamento pronto",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Information);
+        if (result == MessageBoxResult.Yes)
+        {
+            UpdateService.LaunchInstaller(setupPath);
+            Application.Current.Shutdown();
         }
     }
 

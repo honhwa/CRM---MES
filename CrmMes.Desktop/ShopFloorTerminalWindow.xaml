@@ -95,7 +95,8 @@
                             <TextBox x:Name="JobLotText" Style="{StaticResource SelectableText}" FontSize="12.5" Foreground="{StaticResource TextSecondaryBrush}" ToolTip="Seleziona per copiare" />
                             <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                 <Button Style="{StaticResource SecondaryButton}" Content="Copia codice" Height="28" Margin="0,0,8,0" Click="CopyCode_Click" />
-                                <Button Style="{StaticResource SecondaryButton}" Content="Copia lotto" Height="28" Click="CopyLot_Click" />
+                                <Button Style="{StaticResource SecondaryButton}" Content="Copia lotto" Height="28" Margin="0,0,8,0" Click="CopyLot_Click" />
+                                <Button Style="{StaticResource SecondaryButton}" Content="Distinta materiali" Height="28" Click="LotMaterials_Click" />
                             </StackPanel>
                         </StackPanel>
                         <Border Grid.Column="1" x:Name="JobStatusPill" Style="{StaticResource Pill}" VerticalAlignment="Top">
@@ -136,10 +137,10 @@
                         <TextBlock x:Name="ActiveOperationText" FontSize="15" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
                     </DockPanel>
                     <UniformGrid Columns="2" Rows="2">
-                        <Button x:Name="ActionButton" Height="72" FontSize="22" Margin="0,0,10,10" Click="Action_Click" />
-                        <Button x:Name="DowntimeButton" Style="{StaticResource SecondaryButton}" Content="Segnala fermo" Height="72" FontSize="20" Margin="0,0,0,10" Click="Downtime_Click" />
-                        <Button x:Name="NonConformityButton" Style="{StaticResource SecondaryButton}" Content="Segnala non conformità" Height="72" FontSize="20" Margin="0,10,10,0" Click="NonConformity_Click" />
-                        <Button x:Name="NewScanButton" Style="{StaticResource SecondaryButton}" Content="Nuova scansione" Height="72" FontSize="20" Margin="0,10,0,0" Click="NewScan_Click" />
+                        <Button x:Name="ActionButton" Height="52" FontSize="17" Margin="0,0,10,10" Click="Action_Click" />
+                        <Button x:Name="DowntimeButton" Style="{StaticResource SecondaryButton}" Content="Segnala fermo" Height="52" FontSize="15" Margin="0,0,0,10" Click="Downtime_Click" />
+                        <Button x:Name="NonConformityButton" Style="{StaticResource SecondaryButton}" Content="Segnala non conformità" Height="52" FontSize="15" Margin="0,10,10,0" Click="NonConformity_Click" />
+                        <Button x:Name="NewScanButton" Style="{StaticResource SecondaryButton}" Content="Nuova scansione" Height="52" FontSize="15" Margin="0,10,0,0" Click="NewScan_Click" />
                     </UniformGrid>
                 </StackPanel>
             </Grid>

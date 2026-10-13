@@ -68,10 +68,10 @@ public sealed class UpdateService
         return normalizedRelease > normalizedCurrent;
     }
 
-    /// <summary>Downloads the installer, verifies its SHA-256 against the checksum published by the release
-    /// pipeline, and starts it in update mode. The caller then closes the application; the installer waits
-    /// for that, updates and reopens the program.</summary>
-    public async Task StartUpdateAsync(ReleaseInfo release, CancellationToken cancellationToken = default)
+    /// <summary>Downloads the installer and verifies its SHA-256 against the checksum published by the
+    /// release pipeline. Returns the path of the verified, ready-to-run installer — nothing is launched yet,
+    /// so the caller can ask the user whether to apply it now or later before calling <see cref="LaunchInstaller"/>.</summary>
+    public async Task<string> DownloadAsync(ReleaseInfo release, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(release.DownloadUrl))
         {
@@ -108,6 +108,13 @@ public sealed class UpdateService
                 $"L'installer scaricato per {release.TagName} non corrisponde al checksum pubblicato: potrebbe essere corrotto o alterato. Aggiornamento annullato.");
         }
 
+        return setupPath;
+    }
+
+    /// <summary>Starts the already-downloaded, already-verified installer in update mode. The caller then
+    /// closes the application; the installer waits for that, updates and reopens the program.</summary>
+    public static void LaunchInstaller(string setupPath)
+    {
         var logPath = Path.Combine(Path.GetTempPath(), "NicoloMES-update.log");
         Process.Start(new ProcessStartInfo
         {
@@ -118,6 +125,14 @@ public sealed class UpdateService
             Arguments = $"/SILENT /SP- /NOCANCEL /CLOSEAPPLICATIONS /TYPE=client /COMPONENTS=\"client\" /UPDATE=1 /LOG=\"{logPath}\"",
             UseShellExecute = true
         });
+    }
+
+    /// <summary>Scarica, verifica e avvia l'installer in un solo passo (usato dal pulsante manuale "Controlla
+    /// aggiornamenti", dove la conferma di procedere è già stata chiesta prima di chiamare questo metodo).</summary>
+    public async Task StartUpdateAsync(ReleaseInfo release, CancellationToken cancellationToken = default)
+    {
+        var setupPath = await DownloadAsync(release, cancellationToken);
+        LaunchInstaller(setupPath);
     }
 
     private sealed class GitHubRelease

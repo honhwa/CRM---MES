@@ -70,7 +70,11 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var settings = new ClientSettings { ApiBaseUrl = url };
+        // Carica le impostazioni esistenti invece di crearne di nuove: altrimenti ogni salvataggio
+        // qui cancellava il PIN di accesso offline già impostato (OfflineAdminEmail/Hash/Salt),
+        // facendolo richiedere di nuovo a ogni apertura di questa finestra.
+        var settings = ClientSettings.Load();
+        settings.ApiBaseUrl = url;
         settings.Save();
         _apiClient.SetBaseUrl(url);
         SettingsChanged = true;

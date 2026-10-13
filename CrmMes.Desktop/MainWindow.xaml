@@ -82,6 +82,7 @@
                                 <Button x:Name="ServiceButton" Style="{StaticResource SidebarLinkButton}" Content="Service post-vendita" Margin="0,6,0,0" Click="ServiceButton_Click" Visibility="Collapsed" />
                                 <Button x:Name="EnergyButton" Style="{StaticResource SidebarLinkButton}" Content="Monitoraggio energetico" Margin="0,6,0,0" Click="EnergyButton_Click" Visibility="Collapsed" />
                                 <Button x:Name="LayoutButton" Style="{StaticResource SidebarLinkButton}" Content="Layout dei moduli" Margin="0,6,0,0" Click="LayoutButton_Click" Visibility="Collapsed" />
+                                <Button x:Name="DataFlowsButton" Style="{StaticResource SidebarLinkButton}" Content="Flussi di dati" Margin="0,6,0,0" Click="DataFlowsButton_Click" Visibility="Collapsed" />
                                 <Button x:Name="SupportButton" Style="{StaticResource SidebarLinkButton}" Content="Teleassistenza" Margin="0,6,0,0" Click="SupportButton_Click" />
                                 <Button x:Name="SidebarSettingsButton" Style="{StaticResource SidebarLinkButton}" Content="Impostazioni server" Margin="0,6,0,0" Click="SettingsButton_Click" Visibility="Collapsed" />
                             </StackPanel>
