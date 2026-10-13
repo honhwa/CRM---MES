@@ -3,7 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Terminale di reparto" Icon="Assets/logo.ico" Height="780" Width="920"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize" MinHeight="620" MinWidth="780"
-        Background="{StaticResource BackgroundBrush}">
+        Background="{StaticResource BackgroundBrush}"
+        PreviewMouseDown="Window_PreviewActivity" PreviewKeyDown="Window_PreviewActivity">
+    <Grid>
     <Grid Margin="28">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -146,5 +148,17 @@
                 </StackPanel>
             </Grid>
         </Grid>
+    </Grid>
+
+        <!-- Schermata inattiva: nessuno identificato, o 5 minuti senza interazione mentre non si sta
+             lavorando attivamente su un lotto (es. appena chiusa/sospesa la commessa). Un tocco/clic
+             qualunque la chiude e torna alla schermata sotto. -->
+        <Border x:Name="IdleOverlay" Background="{StaticResource BackgroundBrush}" Visibility="Collapsed"
+                MouseDown="IdleOverlay_Dismiss" KeyDown="IdleOverlay_Dismiss">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Image x:Name="IdleLogoImage" MaxWidth="360" MaxHeight="360" Stretch="Uniform" />
+                <TextBlock Text="Tocca per continuare" Foreground="{StaticResource TextMutedBrush}" FontSize="16" Margin="0,24,0,0" HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

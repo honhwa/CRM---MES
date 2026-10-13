@@ -29,6 +29,8 @@ public partial class ShopFloorTerminalWindow : Window
     private Guid? _operatorId;
     private WorkOrderDetailDto? _order;
     private WorkOrderOperationDto? _activeOperation;
+    private DateTime _lastActivityAtUtc = DateTime.UtcNow;
+    private bool _hasLogo;
 
     private sealed record OperationActionPayload(Guid WorkOrderId, Guid OperationId, string? OperatorName, Guid? OperatorId);
 
@@ -51,7 +53,11 @@ public partial class ShopFloorTerminalWindow : Window
         NonConformitiesWindow.RegisterOfflineHandlers(_offlineQueue, _apiClient);
 
         _syncTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-        _syncTimer.Tick += async (_, _) => await TrySyncAsync();
+        _syncTimer.Tick += async (_, _) =>
+        {
+            await TrySyncAsync();
+            UpdateIdleOverlay();
+        };
 
         Loaded += (_, _) =>
         {
@@ -59,8 +65,75 @@ public partial class ShopFloorTerminalWindow : Window
             UpdateOfflineStatusUi();
             _syncTimer.Start();
             _ = TrySyncAsync();
+            _ = LoadLogoAsync().ContinueWith(_ => Dispatcher.Invoke(UpdateIdleOverlay), TaskScheduler.Default);
         };
         Closed += (_, _) => _syncTimer.Stop();
+    }
+
+    /// <summary>Schermata inattiva, mostrata quando nessun operatore si è identificato o dopo 5 minuti
+    /// senza interazione mentre non si sta lavorando attivamente su un lotto (es. appena chiusa o sospesa
+    /// la commessa) — mai durante il lavoro vero. Senza un logo caricato dall'Admin non c'è nulla da
+    /// mostrare, quindi la funzione resta semplicemente disattivata.</summary>
+    private async Task LoadLogoAsync()
+    {
+        try
+        {
+            var logo = await _apiClient.GetCompanyLogoAsync();
+            if (logo is null)
+            {
+                return;
+            }
+
+            var image = new System.Windows.Media.Imaging.BitmapImage();
+            using var stream = new System.IO.MemoryStream(logo.Value.Content);
+            image.BeginInit();
+            image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            image.StreamSource = stream;
+            image.EndInit();
+            image.Freeze();
+            IdleLogoImage.Source = image;
+            _hasLogo = true;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            // Nessun logo configurato, o server momentaneamente irraggiungibile: la schermata
+            // inattiva resta disattivata, il terminale funziona comunque normalmente.
+        }
+    }
+
+    private void Window_PreviewActivity(object sender, RoutedEventArgs e) => _lastActivityAtUtc = DateTime.UtcNow;
+
+    private void IdleOverlay_Dismiss(object sender, RoutedEventArgs e)
+    {
+        _lastActivityAtUtc = DateTime.UtcNow;
+        IdleOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(5);
+
+    private void UpdateIdleOverlay()
+    {
+        if (!_hasLogo)
+        {
+            return;
+        }
+
+        // Nessuno identificato: schermata inattiva subito, senza aspettare i 5 minuti.
+        var noOperator = OperatorGatePanel.Visibility == Visibility.Visible;
+        // Identificato ma non si sta guardando un lotto caricato (es. appena chiusa/sospesa la
+        // commessa, tornati alla ricerca): schermata inattiva dopo 5 minuti senza interazione.
+        var idleAtRest = !noOperator && JobPanel.Visibility != Visibility.Visible
+            && DateTime.UtcNow - _lastActivityAtUtc >= IdleTimeout;
+
+        if (noOperator || idleAtRest)
+        {
+            IdleOverlay.Visibility = Visibility.Visible;
+        }
+        else if (JobPanel.Visibility == Visibility.Visible)
+        {
+            // Mai durante il lavoro vero su un lotto, qualunque cosa dica il timer.
+            IdleOverlay.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void UpdateOfflineStatusUi()
