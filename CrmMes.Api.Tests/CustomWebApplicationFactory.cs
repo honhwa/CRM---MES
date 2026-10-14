@@ -1,11 +1,16 @@
+using CrmMes.Api.Services;
 using CrmMes.Core.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
 
 namespace CrmMes.Api.Tests;
 
@@ -22,6 +27,12 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     /// <summary>Overrides Auth:External:AutoProvision for this factory instance.</summary>
     public bool? ExternalAutoProvision { get; init; }
+
+    /// <summary>Aggiunge un secondo provider SSO con Issuer/Audience configurati (quindi verificato
+    /// crittograficamente) oltre al "dev" non verificato di sempre, e sostituisce il validatore OIDC
+    /// con uno che controlla i token contro questa chiave invece di scaricare da un IdP vero — non
+    /// ce n'è uno da interrogare ancora, ma la logica di verifica è la stessa.</summary>
+    public (string Key, string Issuer, string Audience, RsaSecurityKey SigningKey)? VerifiedOidcProvider { get; init; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -42,8 +53,27 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("Auth:External:Providers:0:Name", "Sviluppo");
         builder.UseSetting("Auth:External:Providers:0:Enabled", "true");
 
+        if (VerifiedOidcProvider is { } verified)
+        {
+            builder.UseSetting("Auth:External:Providers:1:Key", verified.Key);
+            builder.UseSetting("Auth:External:Providers:1:Name", "IdP verificato (prova)");
+            builder.UseSetting("Auth:External:Providers:1:Enabled", "true");
+            builder.UseSetting("Auth:External:Providers:1:Issuer", verified.Issuer);
+            builder.UseSetting("Auth:External:Providers:1:Audience", verified.Audience);
+        }
+
         builder.ConfigureServices(services =>
         {
+            if (VerifiedOidcProvider is { } providerForValidator)
+            {
+                services.RemoveAll<IOidcTokenValidator>();
+                var oidcConfig = new OpenIdConnectConfiguration();
+                oidcConfig.SigningKeys.Add(providerForValidator.SigningKey);
+                var configManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(oidcConfig);
+                services.AddSingleton<IOidcTokenValidator>(sp =>
+                    new OidcTokenValidator(sp.GetRequiredService<IConfiguration>(), _ => configManager));
+            }
+
             // AddDbContext registers more than DbContextOptions<T>: it also adds a per-provider
             // IDbContextOptionsConfiguration<T>. Leaving the Npgsql one behind makes EF Core see
             // two providers registered at once and throw, so both must be removed before re-adding Sqlite.

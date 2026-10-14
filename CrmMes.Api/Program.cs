@@ -76,6 +76,7 @@ builder.Services.AddSwaggerGen();
 // tooling (uptime checks, orchestrators) that expects the standard health-check JSON shape and wants
 // each dependency broken out individually rather than a single combined status.
 builder.Services.AddSingleton<CrmMes.Api.Services.DbConnectivityCache>();
+builder.Services.AddSingleton<CrmMes.Api.Services.IOidcTokenValidator, CrmMes.Api.Services.OidcTokenValidator>();
 builder.Services.AddHealthChecks()
     .AddCheck<CrmMes.Api.Services.DatabaseHealthCheck>("postgres");
 builder.Services.AddResponseCompression(options =>

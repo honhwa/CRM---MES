@@ -42,6 +42,7 @@ public class AuthController : ControllerBase
     private readonly TwoFactorChallenges _challenges;
     private readonly SecretProtector _protector;
     private readonly IWebHostEnvironment _environment;
+    private readonly IOidcTokenValidator _oidcValidator;
 
     public AuthController(
         ApplicationDbContext dbContext,
@@ -49,7 +50,8 @@ public class AuthController : ControllerBase
         IPasswordHasher<User> passwordHasher,
         TwoFactorChallenges challenges,
         SecretProtector protector,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        IOidcTokenValidator oidcValidator)
     {
         _dbContext = dbContext;
         _configuration = configuration;
@@ -57,6 +59,7 @@ public class AuthController : ControllerBase
         _challenges = challenges;
         _protector = protector;
         _environment = environment;
+        _oidcValidator = oidcValidator;
     }
 
     private bool ExternalAuthAllowed =>
@@ -75,14 +78,49 @@ public class AuthController : ControllerBase
         }
 
         var provider = request.Provider?.Trim();
-        var subject = request.Subject?.Trim();
-        if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(subject))
+        if (string.IsNullOrWhiteSpace(provider))
         {
-            return BadRequest(new { message = "Provider e Subject sono obbligatori." });
+            return BadRequest(new { message = "Provider è obbligatorio." });
         }
 
-        var email = request.Email?.Trim().ToLowerInvariant();
-        var name = request.Name?.Trim();
+        string subject;
+        string? email;
+        string? name;
+
+        if (_oidcValidator.Providers.TryGetValue(provider, out var providerConfig) && providerConfig.RequiresIdToken)
+        {
+            // Provider con un IdP reale configurato (Issuer+Audience): Subject/Email/Name dichiarati dal
+            // client non contano più, contano solo quelli dentro un id_token verificato crittograficamente.
+            if (string.IsNullOrWhiteSpace(request.IdToken))
+            {
+                return BadRequest(new { message = "Questo provider richiede un id_token verificato (Issuer/Audience configurati)." });
+            }
+
+            var validation = await _oidcValidator.ValidateAsync(provider, request.IdToken, cancellationToken);
+            if (!validation.Success)
+            {
+                return Unauthorized(new { message = $"Verifica del token fallita: {validation.FailureReason}" });
+            }
+
+            subject = validation.Subject!;
+            email = validation.Email?.Trim().ToLowerInvariant();
+            name = validation.Name?.Trim();
+        }
+        else
+        {
+            // Nessun IdP reale configurato per questo provider (es. "dev" per test/demo locale): resta il
+            // comportamento storico, si fida di quello che manda il client — mai da abilitare in
+            // produzione per un provider che non sia esplicitamente pensato per restare non verificato.
+            subject = request.Subject?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(subject))
+            {
+                return BadRequest(new { message = "Subject è obbligatorio." });
+            }
+
+            email = request.Email?.Trim().ToLowerInvariant();
+            name = request.Name?.Trim();
+        }
+
         var channel = AccessChannels.NormalizeChannel(request.Channel) ?? AccessChannels.Web;
 
         var user = await _dbContext.Users.SingleOrDefaultAsync(
@@ -168,27 +206,9 @@ public class AuthController : ControllerBase
             return Ok(new List<ExternalProviderResponse>());
         }
 
-        var list = new List<ExternalProviderResponse>();
-        var section = _configuration.GetSection("Auth:External:Providers");
-        foreach (var child in section.GetChildren())
-        {
-            if (child.Exists() && !string.IsNullOrWhiteSpace(child["Key"]))
-            {
-                list.Add(new ExternalProviderResponse(
-                    child["Key"]!.Trim(),
-                    child["Name"]?.Trim() ?? child["Key"]!.Trim(),
-                    child.GetValue<bool>("Enabled")));
-                continue;
-            }
-
-            if (!string.IsNullOrWhiteSpace(child.Key) && child.Key != "0")
-            {
-                list.Add(new ExternalProviderResponse(
-                    child.Key,
-                    child["Name"]?.Trim() ?? child.Key,
-                    child.GetValue("Enabled", true)));
-            }
-        }
+        var list = _oidcValidator.Providers.Values
+            .Select(p => new ExternalProviderResponse(p.Key, p.Name, p.Enabled, p.RequiresIdToken))
+            .ToList();
 
         return Ok(list);
     }
@@ -589,6 +609,9 @@ public sealed record AuthResponse(
 
 public sealed record TwoFactorLoginRequest(string? Challenge, string? Code);
 
-public sealed record ExternalLoginRequest(string? Provider, string? Subject, string? Email, string? Name, string? Channel = null);
+/// <summary>Subject/Email/Name sono usati solo per un provider senza Issuer/Audience configurati (es. "dev",
+/// test/demo locale); con un IdP reale configurato, contano solo i claim dentro IdToken, verificato
+/// crittograficamente — Subject/Email/Name passati qui vengono ignorati in quel caso.</summary>
+public sealed record ExternalLoginRequest(string? Provider, string? Subject, string? Email, string? Name, string? Channel = null, string? IdToken = null);
 
-public sealed record ExternalProviderResponse(string Key, string Name, bool Enabled);
+public sealed record ExternalProviderResponse(string Key, string Name, bool Enabled, bool RequiresIdToken = false);
