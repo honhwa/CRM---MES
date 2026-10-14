@@ -235,6 +235,13 @@ if (migrateOnly || app.Configuration.GetValue<bool>("Database:AutoMigrate"))
     }
 }
 
+app.Use(CrmMes.Api.Services.ApiVersionRewriteMiddleware.InvokeAsync);
+// Esplicito perché deve girare qui, subito dopo la riscrittura di /api/v1/ e prima di tutto il
+// resto: senza questa chiamata il framework inserisce la selezione della rotta all'inizio della
+// pipeline (prima di qualunque app.Use registrato), cioè prima che /api/v1/... sia già stato
+// riscritto in /api/..., e la richiesta risulta "nessuna rotta corrispondente" (404) anche se il
+// percorso visto dai middleware successivi è quello giusto.
+app.UseRouting();
 app.UseForwardedHeaders();
 app.UseExceptionHandler();
 // The technicians' web page (/tecnici, wwwroot/tecnici): same-origin only, no inline scripts, no
