@@ -163,6 +163,21 @@ Primo test di carico mai eseguito su Nicolò MES (14/10/2026), nell'ambito dell'
 
 **Non misurato in questo giro**: scritture concorrenti (solo letture); comportamento sotto migliaia di sessioni (qui 20, scelto per restare sotto i limiti locali senza false conclusioni); query reali su dataset grandi (il branch di prova era vuoto a parte i 3 record di seed) — il test di carico va ripetuto con un dataset di dimensioni realistiche prima di trarre conclusioni sulla scalabilità in produzione.
 
+### Stress test esteso (14/10/2026): scritture, 50 utenti, dataset più grande
+
+Seguito esplicito del primo test di carico, per coprire ciò che era rimasto fuori: `scripts/load-test/run_stress_test.py`. Dataset di partenza 50 materiali + 20 prodotti (non più 3 record), 50 sessioni concorrenti (non più 20), scritture concorrenti vere (creazione commessa, non solo letture). Stesso metodo: branch Neon di prova isolato, ripulito prima e dopo.
+
+| Rotta | Richieste | p50 | p90 | p99 |
+|---|---|---|---|---|
+| Login | 50 | 16 ms | 540 ms | 553 ms |
+| `/health` | 285 | 6,4 ms | 13 ms | 228 ms |
+| Lista materiali/prodotti/commesse | 285 ciascuna | ~30 ms | ~45 ms | ~85–150 ms |
+| **Crea commessa (scrittura)** | 95 | 87 ms | 447 ms | 459 ms |
+
+**Esito**: throughput 367 richieste/s, **le scritture concorrenti funzionano correttamente** (95/95 commesse create, 0 errori) — prima prova di scrittura sotto carico, risultato pulito. Le letture restano stabili anche con dataset 15× più grande e 50 sessioni invece di 20.
+
+**Scoperta operativa degna di nota (non un difetto applicativo, ma da valutare)**: 31 login su 50 (62%) sono stati respinti (429) dal limite di richieste sul login (20/min per indirizzo IP, pensato contro i tentativi di indovinare una password). Il controllo funziona esattamente come progettato — ma se 50 utenti reali si trovassero dietro lo stesso indirizzo IP (es. un ufficio con un unico NAT aziendale) e tentassero il login quasi insieme (es. inizio turno), vedrebbero lo stesso respingimento di un attacco. Oggi non è un problema noto sul campo (un solo cliente, due sedi), ma è un limite da tenere presente se il numero di postazioni dietro un solo IP crescerà. Nessuna modifica fatta: è una scelta di soglia, non un difetto, e cambiarla è una decisione di sicurezza del titolare, non un'esecuzione automatica.
+
 **Corretto lo stesso giorno**: aggiunta `CrmMes.Api/Services/DbConnectivityCache.cs`, una cache con TTL di 4 secondi che condivide l'esito dell'ultimo controllo di connettività al database e deduplica i controlli concorrenti nella stessa finestra — usata sia da `/health` sia da `/health/detailed`. `/health` resta consapevole del database (Render la usa come `healthCheckPath`, il client desktop per distinguere "server giù" da "problema di rete"): non è stato tolto il controllo, solo evitato di ripeterlo ad ogni singola richiesta ravvicinata. Rimisurato con lo stesso test di carico:
 
 | Rotta | p50 prima | p50 dopo |
