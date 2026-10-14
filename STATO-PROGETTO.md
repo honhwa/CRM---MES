@@ -163,6 +163,15 @@ Primo test di carico mai eseguito su Nicolò MES (14/10/2026), nell'ambito dell'
 
 **Non misurato in questo giro**: scritture concorrenti (solo letture); comportamento sotto migliaia di sessioni (qui 20, scelto per restare sotto i limiti locali senza false conclusioni); query reali su dataset grandi (il branch di prova era vuoto a parte i 3 record di seed) — il test di carico va ripetuto con un dataset di dimensioni realistiche prima di trarre conclusioni sulla scalabilità in produzione.
 
+**Corretto lo stesso giorno**: aggiunta `CrmMes.Api/Services/DbConnectivityCache.cs`, una cache con TTL di 4 secondi che condivide l'esito dell'ultimo controllo di connettività al database e deduplica i controlli concorrenti nella stessa finestra — usata sia da `/health` sia da `/health/detailed`. `/health` resta consapevole del database (Render la usa come `healthCheckPath`, il client desktop per distinguere "server giù" da "problema di rete"): non è stato tolto il controllo, solo evitato di ripeterlo ad ogni singola richiesta ravvicinata. Rimisurato con lo stesso test di carico:
+
+| Rotta | p50 prima | p50 dopo |
+|---|---|---|
+| `/health` | 145 ms | **6,7 ms** |
+| Throughput complessivo | 315 req/s | **518 req/s** |
+
+4 nuovi test (`HealthConnectivityCacheTests.cs`) coprono: niente controlli ripetuti entro il TTL, il controllo riparte dopo la scadenza, le chiamate concorrenti nella stessa finestra condividono un solo controllo reale, un controllo fallito non resta in cache (si ritenta subito). Suite API verde dopo la modifica.
+
 ## Cosa manca
 
 | Punto | Stato | Cosa serve |

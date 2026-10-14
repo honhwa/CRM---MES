@@ -75,6 +75,7 @@ builder.Services.AddSwaggerGen();
 // retry, and changing its response shape is not worth the risk). This one is for external monitoring
 // tooling (uptime checks, orchestrators) that expects the standard health-check JSON shape and wants
 // each dependency broken out individually rather than a single combined status.
+builder.Services.AddSingleton<CrmMes.Api.Services.DbConnectivityCache>();
 builder.Services.AddHealthChecks()
     .AddCheck<CrmMes.Api.Services.DatabaseHealthCheck>("postgres");
 builder.Services.AddResponseCompression(options =>
@@ -356,11 +357,15 @@ app.MapFallbackToFile("app/{*path:nonfile}", "app/index.html");
 // so the database (billed by compute time) can still sleep at night.
 app.MapGet("/ping", () => Results.Ok(new { status = "ok" }));
 
-app.MapGet("/health", async (ApplicationDbContext db) =>
+app.MapGet("/health", async (ApplicationDbContext db, CrmMes.Api.Services.DbConnectivityCache cache, CancellationToken cancellationToken) =>
 {
     try
     {
-        var isConnected = await db.Database.CanConnectAsync();
+        // Il risultato è condiviso per pochi secondi (vedi DbConnectivityCache): così Render, che
+        // interroga questa rotta come healthCheckPath, e il client desktop, che la usa per
+        // distinguere "server giù" da "problema di rete", restano consapevoli dello stato del
+        // database senza che ogni chiamata ravvicinata apra una connessione reale.
+        var isConnected = await cache.IsConnectedAsync(ct => db.Database.CanConnectAsync(ct), cancellationToken);
         return Results.Ok(new { status = isConnected ? "healthy" : "unavailable", database = "postgres" });
     }
     catch (Exception ex)
