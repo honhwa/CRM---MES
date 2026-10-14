@@ -196,4 +196,51 @@ public class DataFlowsTests : IClassFixture<AdminSeededApiTestFixture>
         var notifications = await shippingClient.GetFromJsonAsync<List<NotificationResponse>>("/api/notifications");
         Assert.Contains(notifications!, n => n.Message == $"DDT {issuedDocument.DocumentCode} emesso per Cliente Flussi spa.");
     }
+
+    /// <summary>Terzo evento cablato dopo DDT emesso, scelto durante la richiesta esplicita di "iniziare a
+    /// crearne alcuni e testarli": una non conformità registrata al terminale di reparto deve avvisare
+    /// chi deve saperlo subito (capo reparto/direzione), non al prossimo giro di controllo qualità.</summary>
+    [Fact]
+    public async Task RegisteringANonConformity_PublishesTheRealEvent_EndToEnd()
+    {
+        await ResetFlowsAsync();
+        var management = await TestAuth.CreateUserWithRoleAsync(_fixture.Factory, _fixture.Admin.Token, "Management");
+        using var managementClient = _fixture.Factory.AuthenticatedClient(management.Token);
+        (await _admin.PostAsJsonAsync("/api/data-flows",
+            new SaveDataFlowRequest("Avviso non conformità", DataFlowEvents.NonConformityReported, true,
+                [new SaveDataFlowStepRequest(DataFlowStepType.NotifyRole, "Management",
+                    "Non conformità su {{workOrderCode}} ({{productCode}}): {{description}}, {{scrapQuantity}} pezzi scartati.")]))).EnsureSuccessStatusCode();
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var materialCode = $"MAT-{suffix}";
+        (await _admin.PostAsJsonAsync("/api/materials", new CreateMaterialRequest(materialCode, $"Materiale {suffix}", "pz", 100, 0))).EnsureSuccessStatusCode();
+
+        var productCode = $"PROD-{suffix}";
+        var createProduct = await _admin.PostAsJsonAsync("/api/products", new CreateProductRequest(productCode, "Prodotto prova", null));
+        createProduct.EnsureSuccessStatusCode();
+        var product = (await createProduct.Content.ReadFromJsonAsync<ProductResponse>())!;
+
+        (await _admin.PutAsJsonAsync($"/api/products/{product.Id}/bom",
+            new ReplaceBillOfMaterialRequest([new BillOfMaterialItemRequest(materialCode, 1, null)]))).EnsureSuccessStatusCode();
+        (await _admin.PutAsJsonAsync($"/api/products/{product.Id}/routing",
+            new ReplaceRoutingRequest([new RoutingStepRequest("Assemblaggio", null, "Linea 1", 30)]))).EnsureSuccessStatusCode();
+
+        var createOrder = await _admin.PostAsJsonAsync("/api/work-orders", new CreateWorkOrderRequest(product.Id, 2, null, null, null, null, null));
+        createOrder.EnsureSuccessStatusCode();
+        var order = (await createOrder.Content.ReadFromJsonAsync<WorkOrderResponse>())!;
+        (await _admin.PostAsJsonAsync($"/api/work-orders/{order.Id}/release", new { })).EnsureSuccessStatusCode();
+
+        var reloaded = await _admin.GetFromJsonAsync<WorkOrderResponse>($"/api/work-orders/{order.Id}");
+        var operationId = reloaded!.Operations.Single().Id;
+        (await _admin.PostAsync($"/api/work-orders/{order.Id}/operations/{operationId}/start?operatorName=Prova", null))
+            .EnsureSuccessStatusCode();
+
+        var register = await _admin.PostAsJsonAsync(
+            $"/api/work-orders/{order.Id}/operations/{operationId}/non-conformities",
+            new RegisterNonConformityRequest("Vite allentata", 1, null));
+        register.EnsureSuccessStatusCode();
+
+        var notifications = await managementClient.GetFromJsonAsync<List<NotificationResponse>>("/api/notifications");
+        Assert.Contains(notifications!, n => n.Message == $"Non conformità su {order.Code} ({productCode}): Vite allentata, 1 pezzi scartati.");
+    }
 }

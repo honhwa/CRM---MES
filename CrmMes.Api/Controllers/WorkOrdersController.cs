@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using CrmMes.Api.Services;
 using CrmMes.Core.Data;
+using CrmMes.Core.Flows;
 using CrmMes.Core.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,12 +20,14 @@ public class WorkOrdersController : ControllerBase
     private readonly ApplicationDbContext _dbContext;
     private readonly WithdrawalItemBuilder _itemBuilder;
     private readonly WorkOrderFactory _workOrderFactory;
+    private readonly DataFlowEngine _flows;
 
-    public WorkOrdersController(ApplicationDbContext dbContext, WithdrawalItemBuilder itemBuilder, WorkOrderFactory workOrderFactory)
+    public WorkOrdersController(ApplicationDbContext dbContext, WithdrawalItemBuilder itemBuilder, WorkOrderFactory workOrderFactory, DataFlowEngine flows)
     {
         _dbContext = dbContext;
         _itemBuilder = itemBuilder;
         _workOrderFactory = workOrderFactory;
+        _flows = flows;
     }
 
     [HttpGet]
@@ -699,6 +702,23 @@ public class WorkOrdersController : ControllerBase
 
         _dbContext.NonConformities.Add(nonConformity);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Fuori da ogni try di questo metodo e dopo il salvataggio vero: un flusso che fallisce non deve
+        // mai far sembrare fallita una non conformità già registrata (stessa regola di EngineeringController
+        // e TransportDocumentsController).
+        var order = await _dbContext.WorkOrders.AsNoTracking().Include(o => o.Product)
+            .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
+        await _flows.PublishAsync(
+            DataFlowEvents.NonConformityReported, "NonConformity", nonConformity.Id,
+            new Dictionary<string, string>
+            {
+                ["workOrderCode"] = order?.Code ?? string.Empty,
+                ["productCode"] = order?.Product?.Code ?? string.Empty,
+                ["description"] = nonConformity.Description,
+                ["scrapQuantity"] = nonConformity.ScrapQuantity.ToString("0.##"),
+                ["reportedBy"] = nonConformity.ReportedBy ?? string.Empty,
+            },
+            cancellationToken);
 
         return Ok(ToNonConformityResponse(nonConformity, unit));
     }

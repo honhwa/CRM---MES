@@ -20,6 +20,11 @@ public static class DataFlowEvents
     /// provare che aggiungerne uno nuovo è davvero una modifica piccola una volta che il motore esiste.</summary>
     public const string TransportDocumentIssued = "transportDocument.issued";
 
+    /// <summary>Un operatore registra una non conformità al terminale di reparto (scarto di pezzi,
+    /// difetto rilevato). Terzo evento cablato: capo reparto e direzione vogliono saperlo subito, non al
+    /// prossimo giro di controllo qualità.</summary>
+    public const string NonConformityReported = "nonConformity.reported";
+
     public static readonly IReadOnlyDictionary<string, DataFlowEventDefinition> All = new Dictionary<string, DataFlowEventDefinition>
     {
         [EngineeringChangeApplied] = new(
@@ -41,6 +46,16 @@ public static class DataFlowEvents
                 new("reason", "Causale"),
                 new("recipientName", "Destinatario"),
                 new("issuedBy", "Emesso da"),
+            ]),
+        [NonConformityReported] = new(
+            NonConformityReported,
+            "Non conformità registrata (terminale di reparto)",
+            [
+                new("workOrderCode", "Commessa"),
+                new("productCode", "Codice prodotto"),
+                new("description", "Descrizione"),
+                new("scrapQuantity", "Quantità scartata"),
+                new("reportedBy", "Segnalata da"),
             ]),
     };
 
