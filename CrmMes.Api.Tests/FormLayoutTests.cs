@@ -258,4 +258,45 @@ public class FormLayoutTests : IClassFixture<AdminSeededApiTestFixture>
         Assert.True(fields["area"].CanHide);
         Assert.True(fields["dueDate"].CanHide);
     }
+
+    [Fact]
+    public void CapaNew_ProtectsTitle_AndLeavesCodeAndDueDateOptional()
+    {
+        var fields = FormLayoutRegistry.Screens[FormLayoutRegistry.CapaNew].ToDictionary(f => f.Key);
+
+        Assert.True(fields["title"].Required);
+        Assert.False(fields["title"].CanHide);
+        Assert.True(fields["code"].CanHide);
+        Assert.True(fields["description"].CanHide);
+        Assert.True(fields["dueDate"].CanHide);
+    }
+
+    [Fact]
+    public async Task CapaNew_Admin_CanRelabelReorderAndHideOptionalFields()
+    {
+        const string url = "/api/layout/" + FormLayoutRegistry.CapaNew;
+        var fields = new List<SaveLayoutFieldRequest>
+        {
+            Field("title", "Oggetto della non conformità", 1, required: true),
+            Field("description", "Analisi", 2),
+            Field("code", null, 3, visible: false),
+            Field("dueDate", "Da chiudere entro", 4),
+        };
+
+        var saved = await _admin.PutAsJsonAsync(url, new SaveLayoutRequest(fields));
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+
+        try
+        {
+            var screen = await _admin.GetFromJsonAsync<LayoutScreenResponse>(url);
+            Assert.Equal("title", screen!.Fields[0].Key);
+            Assert.Equal("Oggetto della non conformità", screen.Fields[0].Label);
+            Assert.False(screen.Fields.Single(f => f.Key == "code").Visible);
+            Assert.Equal("Da chiudere entro", screen.Fields.Single(f => f.Key == "dueDate").Label);
+        }
+        finally
+        {
+            await _admin.PutAsJsonAsync(url, new SaveLayoutRequest([]));
+        }
+    }
 }

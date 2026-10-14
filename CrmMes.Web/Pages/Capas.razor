@@ -63,10 +63,24 @@
     <div class="card card-pad stack">
         <h2>Nuova CAPA</h2>
         <div class="form-grid">
-            <label>Codice (opzionale)<input @bind="_newCode" placeholder="Auto se vuoto" autocomplete="off" /></label>
-            <label>Titolo<input @bind="_newTitle" /></label>
-            <label>Descrizione<textarea @bind="_newDescription" rows="2"></textarea></label>
-            <label>Scadenza<input type="date" @bind="_newDueDate" /></label>
+            @foreach (var f in _newFields.Where(f => f.Visible).OrderBy(f => f.Order))
+            {
+                switch (f.Key)
+                {
+                    case "code":
+                        <label>@LayoutHelper.LabelOf(f)<input @bind="_newCode" placeholder="Auto se vuoto" autocomplete="off" /></label>
+                        break;
+                    case "title":
+                        <label>@LayoutHelper.LabelOf(f)<input @bind="_newTitle" /></label>
+                        break;
+                    case "description":
+                        <label>@LayoutHelper.LabelOf(f)<textarea @bind="_newDescription" rows="2"></textarea></label>
+                        break;
+                    case "dueDate":
+                        <label>@LayoutHelper.LabelOf(f)<input type="date" @bind="_newDueDate" /></label>
+                        break;
+                }
+            }
         </div>
         <div class="actions"><button @onclick="CreateAsync" disabled="@_busy">Crea CAPA</button></div>
     </div>
@@ -83,7 +97,26 @@
 
     private bool CanManage => Session.Role is "Admin" or "Management";
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    /// <summary>Campi del modulo come li ha impostati l'Admin nello strumento Layout (default prima della risposta).</summary>
+    private List<LayoutField> _newFields =
+    [
+        new("code", "Codice (opzionale)", 1, true, false, true),
+        new("title", "Titolo", 2, true, true, false),
+        new("description", "Descrizione", 3, true, false, true),
+        new("dueDate", "Scadenza", 4, true, false, true),
+    ];
+
+    private async Task LoadNewLayoutAsync()
+    {
+        try { _newFields = (await Api.GetAsync<LayoutScreen>("api/layout/capa.new")).Fields; }
+        catch (ApiException) { /* restano i default */ }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadNewLayoutAsync();
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
@@ -100,6 +133,20 @@
 
     private async Task CreateAsync()
     {
+        var missing = LayoutHelper.Missing(_newFields, key => key switch
+        {
+            "code" => _newCode,
+            "title" => _newTitle,
+            "description" => _newDescription,
+            "dueDate" => _newDueDate?.ToString(),
+            _ => null,
+        });
+        if (missing.Count > 0)
+        {
+            _error = "Compila i campi obbligatori: " + string.Join(", ", missing) + ".";
+            return;
+        }
+
         _busy = true;
         _error = null;
         try

@@ -44,6 +44,7 @@ public static class FormLayoutRegistry
     public const string QuoteNew = "quote.new";
     public const string InvoiceNew = "invoice.new";
     public const string QuoteConvert = "quote.convert";
+    public const string CapaNew = "capa.new";
 
     /// <summary>Nome leggibile della schermata, per l'elenco nello strumento Layout.</summary>
     public static readonly IReadOnlyDictionary<string, string> Names = new Dictionary<string, string>
@@ -60,6 +61,7 @@ public static class FormLayoutRegistry
         [QuoteNew] = "Nuovo preventivo (vendite)",
         [InvoiceNew] = "Nuova fattura elettronica (testata)",
         [QuoteConvert] = "Conversione preventivo in commesse (web)",
+        [CapaNew] = "Nuova azione correttiva (CAPA, qualità)",
     };
 
     public static readonly IReadOnlyDictionary<string, IReadOnlyList<FormFieldDefault>> Screens =
@@ -152,6 +154,13 @@ public static class FormLayoutRegistry
                 new("channel", "Canale", 4, Required: true, CanHide: false),
                 new("requestedBy", "Richiesta da", 5, Required: false, CanHide: true),
                 new("contactInfo", "Contatto", 6, Required: false, CanHide: true),
+            ],
+            [CapaNew] =
+            [
+                new("code", "Codice (opzionale)", 1, Required: false, CanHide: true),
+                new("title", "Titolo", 2, Required: true, CanHide: false),
+                new("description", "Descrizione", 3, Required: false, CanHide: true),
+                new("dueDate", "Scadenza", 4, Required: false, CanHide: true),
             ],
         };
 
