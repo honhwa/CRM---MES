@@ -215,6 +215,14 @@ Prima ondata (14/10/2026), nell'ambito della roadmap "livello enterprise" (`.unl
 
 **Cosa resta, e non è codice**: un cliente con un IdP vero da collegare (Azure AD, Google Workspace…) per avere `Issuer`/`Audience` reali da configurare — oggi non c'è nessuno da interrogare.
 
+## Licenza: blocco totale, non vista limitata (14/10/2026)
+
+Confermato dal titolare: la gestione della licenza è fuori dal programma — decide un servizio esterno (la console venditore, già costruita in `CrmMes.Console`, non ancora distribuita). Se dice che i pagamenti sono a posto, l'installazione resta attiva; se dice di no, **blocco totale ("hard")**, non la vista limitata (dashboard, liste) che il codice usava finora, copiata dagli altri gestionali dello stesso titolare.
+
+**Cambiato**: `AuthController` rifiuta login, login/2FA, refresh del token e accesso SSO con **402** ("Abbonamento sospeso...") prima ancora di controllare le credenziali, quando la licenza risulta sospesa — stessa risposta a password giusta o sbagliata. `LicenseState.IsAllowedWhenSuspended` non lascia più passare nessuna rotta `/api/*` tranne `/api/license` (così un client già loggato, con un token ancora valido fino a 30 minuti dalla sospensione, vede comunque perché è bloccato e un Admin può forzare un nuovo controllo appena il pagamento si sblocca). Aggiornato il test esistente che verificava il vecchio comportamento; suite API **515/515** verde.
+
+**Cosa resta, e non è ancora questo lavoro**: la console (`CrmMes.Console`) esiste in codice ma non è distribuita — serve un account Stripe, `CONSOLE_SECRET`, il deploy come servizio a sé, e poi `License:ConsoleUrl`/`License:Key` su ogni installazione per attivare davvero l'enforcement (oggi, senza questi due valori, il licensing resta spento e tutto funziona come prima, per sviluppo/uso proprio).
+
 ## Cosa manca
 
 | Punto | Stato | Cosa serve |

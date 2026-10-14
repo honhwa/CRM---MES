@@ -98,26 +98,16 @@ public sealed class LicenseState
         return new Snapshot(true, status, message, grant.Plan, grant.Modules, grant.MaxUsers, grant.ValidUntil, checkedAt, grant.Customer);
     }
 
-    /// <summary>What a suspended installation still answers: login and account, support, the license itself,
-    /// and a limited overall view (dashboard, lists). No detail opens and nothing changes.</summary>
-    public static bool IsAllowedWhenSuspended(HttpRequest request)
-    {
-        var path = request.Path;
-        if (path.StartsWithSegments("/api/auth") || path.StartsWithSegments("/api/account") || path.StartsWithSegments("/api/support")
-            || path.StartsWithSegments("/api/license") || !path.StartsWithSegments("/api"))
-        {
-            return true;
-        }
-
-        if (!HttpMethods.IsGet(request.Method))
-        {
-            return false;
-        }
-
-        var value = path.Value?.TrimEnd('/').ToLowerInvariant();
-        return value is "/api/company-profile" or "/api/company-profile/areas" or "/api/company-profile/access"
-            or "/api/work-orders" or "/api/work-orders/dashboard" or "/api/work-orders/lookup" or "/api/materials";
-    }
+    /// <summary>La gestione della licenza è fuori da questo programma (la console venditore, un servizio
+    /// esterno): se dice che i pagamenti sono a posto l'installazione resta attiva, se dice di no blocca
+    /// tutto, in modo totale ("hard") — non la vista limitata (dashboard, liste) usata in altri gestionali
+    /// dello stesso titolare. Login/registrazione SSO/refresh sono già rifiutati prima ancora di arrivare
+    /// qui (vedi AuthController.LicenseRefusalAsync, controllato prima delle credenziali): quello che
+    /// resta da bloccare qui è una sessione già aperta prima della sospensione, il cui token resta valido
+    /// fino a 30 minuti. Resta raggiungibile solo /api/license, cosi' un client già loggato può ancora
+    /// vedere perché è bloccato e un Admin può forzare un nuovo controllo appena il pagamento è risolto.</summary>
+    public static bool IsAllowedWhenSuspended(HttpRequest request) =>
+        !request.Path.StartsWithSegments("/api") || request.Path.StartsWithSegments("/api/license");
 }
 
 /// <summary>Every hour (the first time a minute after start) tells the console this installation is alive

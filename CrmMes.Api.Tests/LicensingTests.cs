@@ -171,28 +171,46 @@ public class LicensingTests : IAsyncLifetime
         Assert.Contains("Fattura elettronica", await notIncluded.Content.ReadAsStringAsync());
     }
 
+    /// <summary>La gestione della licenza è fuori dal programma (la console venditore): se dice di no, blocco
+    /// totale ("hard"), non la vista limitata usata in altri gestionali dello stesso titolare — nessun
+    /// accesso, nemmeno il login stesso, nemmeno per una sessione già aperta prima della sospensione.</summary>
     [Fact]
-    public async Task Suspended_LeavesOnlyALimitedOverallView()
+    public async Task Suspended_BlocksEverything_IncludingLoginItself()
     {
         _console.Status = LicenseStatus.Suspended;
         await CheckAsync();
 
-        Assert.Equal(HttpStatusCode.OK, (await _admin.GetAsync("/api/work-orders")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await _admin.GetAsync("/api/work-orders/dashboard")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await _admin.GetAsync("/api/materials")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await _admin.GetAsync("/api/support/info")).StatusCode);
-
-        var detail = await _admin.GetAsync($"/api/work-orders/{Guid.NewGuid()}");
-        Assert.Equal(HttpStatusCode.PaymentRequired, detail.StatusCode);
-        Assert.Contains("mancato pagamento", await detail.Content.ReadAsStringAsync());
+        // Una sessione già aperta (token valido emesso prima della sospensione) non può più fare nulla,
+        // a parte vedere lo stato della licenza.
+        Assert.Equal(HttpStatusCode.PaymentRequired, (await _admin.GetAsync("/api/work-orders")).StatusCode);
+        Assert.Equal(HttpStatusCode.PaymentRequired, (await _admin.GetAsync("/api/materials")).StatusCode);
+        Assert.Equal(HttpStatusCode.PaymentRequired, (await _admin.GetAsync("/api/support/info")).StatusCode);
         Assert.Equal(HttpStatusCode.PaymentRequired, (await _admin.GetAsync("/api/customers")).StatusCode);
         Assert.Equal(HttpStatusCode.PaymentRequired,
             (await _admin.PostAsJsonAsync("/api/materials", new { code = "X1", name = "Prova", unit = "pz", stock = 0, minStock = 0 })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _admin.GetAsync("/api/license")).StatusCode);
 
-        // Paid again: everything back at the next check.
+        // Un login nuovo (nessun token ancora) viene rifiutato prima ancora di controllare la password.
+        using var anonymousClient = _factory.CreateClient();
+        var login = await anonymousClient.PostAsJsonAsync("/api/auth/login",
+            new { email = "admin@licenza.test", password = "AdminPass123!", channel = "web" });
+        Assert.Equal(HttpStatusCode.PaymentRequired, login.StatusCode);
+        var body = await login.Content.ReadAsStringAsync();
+        Assert.Contains("mancato pagamento", body);
+        Assert.Contains("\"licenseSuspended\":true", body);
+
+        // Anche con una password sbagliata: la licenza blocca prima di arrivare a controllarla.
+        var loginSbagliato = await anonymousClient.PostAsJsonAsync("/api/auth/login",
+            new { email = "admin@licenza.test", password = "password-sbagliata", channel = "web" });
+        Assert.Equal(HttpStatusCode.PaymentRequired, loginSbagliato.StatusCode);
+
+        // Pagato di nuovo: tutto torna al prossimo controllo, login compreso.
         _console.Status = LicenseStatus.Active;
         await CheckAsync();
         Assert.Equal(HttpStatusCode.OK, (await _admin.GetAsync("/api/customers")).StatusCode);
+        var loginDiNuovo = await anonymousClient.PostAsJsonAsync("/api/auth/login",
+            new { email = "admin@licenza.test", password = "AdminPass123!", channel = "web" });
+        Assert.Equal(HttpStatusCode.OK, loginDiNuovo.StatusCode);
     }
 
     [Fact]

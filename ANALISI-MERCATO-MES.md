@@ -152,7 +152,7 @@ Ordinate per impatto commerciale/competitivo, non per facilità. I primi tre non
 | 9 | Decisione su Swagger pubblico in produzione | Basso ma aperta | Scelta deliberata del 02/10 per dare documentazione a chi integra; resta da confermare o rivedere | Titolare | Una conferma esplicita chiude il punto |
 | 10 | Import PDF cataloghi su un catalogo fornitore reale | Basso | Il codice gestisce ff/fi/fl nei codici; manca ancora una prova su un PDF vero di un fornitore | Campo | Importare il primo catalogo reale appena disponibile |
 | 11 | Strumento Layout sulle restanti schermate | Basso-medio, consistenza di prodotto | 13 schermate coperte oggi (14/10); la maggior parte delle ~70 pagine web e ~44 finestre desktop non lo sono ancora | Codice | Continuare per gruppi |
-| 12 | Licenza legata ai pagamenti (portale esterno + Stripe) | Medio-alto, modello di ricavo | Idea del titolare (13/10): un portale esterno che blocca l'uso della piattaforma (web e desktop) se il cliente non è in regola coi pagamenti — già fatto in altri gestionali dello stesso titolare, non ancora per Nicolò MES | Titolare | Decisioni ancora aperte: chi emette il codice cliente, il meccanismo di verifica, cosa vede un cliente bloccato |
+| 12 | Licenza legata ai pagamenti (portale esterno + Stripe) | Medio-alto, modello di ricavo | **Confermato il 14/10/2026**: blocco totale ("hard"), non vista limitata. La console (`CrmMes.Console`) esiste già in codice (clienti, installazioni, Stripe, listino, ticket); Nicolò MES ora rifiuta login/refresh con 402 quando la console dice "sospeso" | Titolare | Resta solo infrastruttura: account Stripe, `CONSOLE_SECRET`, deploy della console, poi `License:ConsoleUrl`/`License:Key` per installazione |
 
 ---
 

@@ -43,6 +43,7 @@ public class AuthController : ControllerBase
     private readonly SecretProtector _protector;
     private readonly IWebHostEnvironment _environment;
     private readonly IOidcTokenValidator _oidcValidator;
+    private readonly LicenseState _licenseState;
 
     public AuthController(
         ApplicationDbContext dbContext,
@@ -51,7 +52,8 @@ public class AuthController : ControllerBase
         TwoFactorChallenges challenges,
         SecretProtector protector,
         IWebHostEnvironment environment,
-        IOidcTokenValidator oidcValidator)
+        IOidcTokenValidator oidcValidator,
+        LicenseState licenseState)
     {
         _dbContext = dbContext;
         _configuration = configuration;
@@ -60,6 +62,7 @@ public class AuthController : ControllerBase
         _protector = protector;
         _environment = environment;
         _oidcValidator = oidcValidator;
+        _licenseState = licenseState;
     }
 
     private bool ExternalAuthAllowed =>
@@ -75,6 +78,12 @@ public class AuthController : ControllerBase
         if (!ExternalAuthAllowed)
         {
             return NotFound();
+        }
+
+        var licenseRefusal = await LicenseRefusalAsync(cancellationToken);
+        if (licenseRefusal is not null)
+        {
+            return StatusCode(StatusCodes.Status402PaymentRequired, new { message = licenseRefusal, licenseSuspended = true });
         }
 
         var provider = request.Provider?.Trim();
@@ -263,6 +272,12 @@ public class AuthController : ControllerBase
         LoginRequest request,
         CancellationToken cancellationToken = default)
     {
+        var licenseRefusal = await LicenseRefusalAsync(cancellationToken);
+        if (licenseRefusal is not null)
+        {
+            return StatusCode(StatusCodes.Status402PaymentRequired, new { message = licenseRefusal, licenseSuspended = true });
+        }
+
         var email = request.Email?.Trim().ToLowerInvariant();
         var user = await _dbContext.Users.SingleOrDefaultAsync(item => item.Email == email && item.IsActive, cancellationToken);
 
@@ -338,6 +353,12 @@ public class AuthController : ControllerBase
     [HttpPost("login/2fa")]
     public async Task<ActionResult<AuthResponse>> LoginTwoFactor(TwoFactorLoginRequest request, CancellationToken cancellationToken = default)
     {
+        var licenseRefusal = await LicenseRefusalAsync(cancellationToken);
+        if (licenseRefusal is not null)
+        {
+            return StatusCode(StatusCodes.Status402PaymentRequired, new { message = licenseRefusal, licenseSuspended = true });
+        }
+
         var challenge = _challenges.Read(request.Challenge);
         if (challenge is null)
         {
@@ -381,6 +402,12 @@ public class AuthController : ControllerBase
         RefreshRequest request,
         CancellationToken cancellationToken = default)
     {
+        var licenseRefusal = await LicenseRefusalAsync(cancellationToken);
+        if (licenseRefusal is not null)
+        {
+            return StatusCode(StatusCodes.Status402PaymentRequired, new { message = licenseRefusal, licenseSuspended = true });
+        }
+
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
         {
             return Unauthorized(new { message = "Refresh token non valido." });
@@ -510,6 +537,19 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>Why this role may not log in from this channel, or null when it may.</summary>
+    /// <summary>La gestione della licenza è fuori da questo programma: un servizio esterno (la console
+    /// venditore) decide se i pagamenti sono in regola. Quando dice di no, blocco totale ("hard"): nessun
+    /// accesso, nemmeno il login stesso — non la vista limitata usata in altri gestionali dello stesso
+    /// titolare. Controllato prima di verificare le credenziali, cosi' un abbonamento sospeso risponde
+    /// sempre uguale a password giusta o sbagliata.</summary>
+    private async Task<string?> LicenseRefusalAsync(CancellationToken cancellationToken)
+    {
+        var snapshot = await _licenseState.CurrentAsync(cancellationToken);
+        return snapshot.IsSuspended
+            ? snapshot.Message ?? "Abbonamento sospeso: contatta l'assistenza per riattivarlo."
+            : null;
+    }
+
     private async Task<string?> ChannelRefusalAsync(string role, string channel, CancellationToken cancellationToken)
     {
         var stored = await _dbContext.CompanyProfiles.AsNoTracking().Select(p => p.AccessChannels).FirstOrDefaultAsync(cancellationToken);
