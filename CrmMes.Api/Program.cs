@@ -309,6 +309,7 @@ app.UseSerilogRequestLogging();
 app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseAuthentication();
+app.Use(CrmMes.Api.Services.RequestUserLogEnricher.InvokeAsync);
 // A role that must use two-factor, on an account that hasn't set it up yet: only login and the setup
 // itself answer until it is active (the client shows the setup screen).
 app.Use(async (context, next) =>
