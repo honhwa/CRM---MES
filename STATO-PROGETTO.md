@@ -172,6 +172,12 @@ Primo test di carico mai eseguito su Nicolò MES (14/10/2026), nell'ambito dell'
 
 4 nuovi test (`HealthConnectivityCacheTests.cs`) coprono: niente controlli ripetuti entro il TTL, il controllo riparte dopo la scadenza, le chiamate concorrenti nella stessa finestra condividono un solo controllo reale, un controllo fallito non resta in cache (si ritenta subito). Suite API verde dopo la modifica.
 
+## Validazione input (hardening enterprise)
+
+Prima ondata (14/10/2026), nell'ambito della roadmap "livello enterprise" (`.unlazy/enterprise-upgrade/PLAN.md`). 326 controlli manuali tipo `BadRequest(new { message = ... })` sono sparsi nei controller API — troppi per una riscrittura in un solo giro senza rischio di regressione. L'API usa già `[ApiController]`, che valida automaticamente come impliciti `[Required]` i parametri reference-type non nullable dei record di richiesta (meccanismo già presente, solo mai sfruttato per vincoli di lunghezza/formato): aggiunte `[MaxLength]` (allineate alle colonne del database, vedi `ApplicationDbContext`), `[Range]` e `[EmailAddress]` su 4 controller ad alto traffico — Materiali, Prodotti, Clienti, Utenti (creazione) — senza toccare i controlli manuali esistenti, che restano. 8 nuovi test (`InputValidationTests.cs`), suite API **492/492** verde, nessuna regressione.
+
+**Continuare per gruppi** (come lo Strumento Layout): decine di altri controller restano con solo i controlli manuali di oggi — fornitori, commesse, distinte, ordini, spedizioni, qualità, service, ufficio tecnico e il resto. Nessuna urgenza di sicurezza (i controlli manuali già bloccano l'input vuoto), ma un input troppo lungo su quei controller arriva ancora al database e fallisce con un errore Postgres poco chiaro (500) invece di un 400 pulito.
+
 ## Cosa manca
 
 | Punto | Stato | Cosa serve |

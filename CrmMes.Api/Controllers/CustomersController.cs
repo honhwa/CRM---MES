@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using CrmMes.Api.Services;
 using CrmMes.Core.Data;
@@ -214,7 +215,13 @@ public sealed record CustomerResponse(
     Guid Id, string Code, string Name, string? VatNumber, string? Email, string? Phone, string? Address, string? Notes, bool IsActive);
 
 public sealed record SaveCustomerRequest(
-    string? Name, string? Code, string? VatNumber, string? Email, string? Phone, string? Address, string? Notes,
+    [MaxLength(250)] string? Name,
+    [MaxLength(80)] string? Code,
+    [MaxLength(40)] string? VatNumber,
+    [EmailAddress, MaxLength(200)] string? Email,
+    [MaxLength(50)] string? Phone,
+    [MaxLength(500)] string? Address,
+    [MaxLength(1000)] string? Notes,
     Dictionary<string, string?>? CustomFields = null);
 
 public sealed record CustomerQuoteResponse(

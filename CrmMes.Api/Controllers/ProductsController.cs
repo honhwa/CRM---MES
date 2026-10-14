@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Security.Claims;
 using ClosedXML.Excel;
 using CrmMes.Api.Services;
@@ -478,8 +479,13 @@ public class ProductsController : ControllerBase
     }
 }
 
-public sealed record CreateProductRequest(string? Code, string? Name, string? Description);
-public sealed record EditProductRequest(string? Name, string? Description);
+public sealed record CreateProductRequest(
+    [MaxLength(100)] string? Code,
+    [MaxLength(250)] string? Name,
+    [MaxLength(1000)] string? Description);
+public sealed record EditProductRequest(
+    [MaxLength(250)] string? Name,
+    [MaxLength(1000)] string? Description);
 
 public sealed record BillOfMaterialItemRequest(string MaterialCode, decimal Quantity, string? Notes);
 public sealed record ReplaceBillOfMaterialRequest(List<BillOfMaterialItemRequest> Items);

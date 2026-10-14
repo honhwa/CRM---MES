@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using CrmMes.Core.Data;
 using CrmMes.Core.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -311,7 +312,12 @@ public class UsersController : ControllerBase
     }
 }
 
-public sealed record CreateUserRequest(string? Name, string? Email, string? Password, string? Role, bool IsFullAdmin = false);
+public sealed record CreateUserRequest(
+    [MaxLength(200)] string? Name,
+    [EmailAddress, MaxLength(200)] string? Email,
+    [MaxLength(500)] string? Password,
+    [MaxLength(50)] string? Role,
+    bool IsFullAdmin = false);
 public sealed record UserResponse(Guid Id, string Name, string Email, string Role, bool IsActive, DateTime CreatedAt, DateTime? AnonymizedAt = null, bool IsFullAdmin = false);
 public sealed record SetUserPinRequest(string? Pin);
 public sealed record ResetUserPasswordRequest(string? NewPassword);

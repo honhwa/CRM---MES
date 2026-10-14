@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using CrmMes.Api.Services;
 using CrmMes.Core.Data;
@@ -323,11 +324,14 @@ public class MaterialsController : ControllerBase
 }
 
 public sealed record CreateMaterialRequest(
-    string Code,
-    string Name,
-    string? Unit,
-    decimal Stock,
-    decimal MinStock,
+    // Lunghezze allineate alle colonne del database (vedi ApplicationDbContext): un input più lungo
+    // oggi arriverebbe fino al database e fallirebbe lì con un errore Postgres poco chiaro (500)
+    // invece di un 400 comprensibile qui.
+    [MaxLength(100)] string Code,
+    [MaxLength(250)] string Name,
+    [MaxLength(50)] string? Unit,
+    [Range(0, double.MaxValue, ErrorMessage = "La giacenza non può essere negativa.")] decimal Stock,
+    [Range(0, double.MaxValue, ErrorMessage = "La scorta minima non può essere negativa.")] decimal MinStock,
     Dictionary<string, string?>? CustomFields = null);
 
 public sealed record MaterialResponse(
