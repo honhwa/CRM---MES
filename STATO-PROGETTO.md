@@ -147,6 +147,10 @@ Stesso metodo (API locale, branch di prova svuotato e ripulito dopo). Esito: **1
 
 **Non provato**: un attacco di forza bruta reale contro il limite di richieste per IP (richiederebbe superare i limiti locali in modo aggressivo, non necessario per verificarne l'esistenza); penetration test di terze parti o scansione automatica delle vulnerabilità (CVE delle dipendenze) — fuori portata di un backtest funzionale.
 
+### Esecuzione del 14/10/2026 (seconda: dopo l'hardening "livello enterprise")
+
+Stesso metodo (API locale, branch Neon di prova svuotato e ripulito dopo). Esito: **30/30 passi superati**. Copre sia il nucleo funzionale (produzione completa: materiale → prodotto → distinta → ciclo → commessa → rilascio → fase → non conformità) sia le 5 novità di oggi (`/api/v1/` identico a `/api/`, validazione input su nome/giacenza/email, `/health` stabile su chiamate ripetute, cybersecurity di base, ruoli, flussi di dati). Un solo intoppo nello script di prova stesso (non del prodotto): il flusso "non conformità registrata" non esiste su un branch vuoto (vive solo in produzione, creato a mano via SQL) — ricreato nello script per provare che il motore funzioni ancora, confermato che genera la notifica attesa.
+
 ## Test di carico
 
 Primo test di carico mai eseguito su Nicolò MES (14/10/2026), nell'ambito dell'iniziativa "livello enterprise" (vedi `.unlazy/enterprise-upgrade/PLAN.md`). Diverso dai backtest sopra: qui si misura la latenza sotto richieste **concorrenti**, non una alla volta. Metodo: API in locale su `ui-verification-temp` (branch Neon di prova, svuotato e riportato allo schema corrente prima del test, ripulito dopo); script Python stdlib (`scripts/load-test/run_load_test.py`, nessuna dipendenza esterna — niente k6/ab disponibili sulla macchina) con 20 sessioni utente concorrenti: ciascuna fa un login (una volta, come nella realtà) poi 10 giri di lettura su 6 rotte rappresentative (health, materiali, prodotti, clienti, commesse, layout CAPA).
