@@ -147,6 +147,22 @@ Stesso metodo (API locale, branch di prova svuotato e ripulito dopo). Esito: **1
 
 **Non provato**: un attacco di forza bruta reale contro il limite di richieste per IP (richiederebbe superare i limiti locali in modo aggressivo, non necessario per verificarne l'esistenza); penetration test di terze parti o scansione automatica delle vulnerabilità (CVE delle dipendenze) — fuori portata di un backtest funzionale.
 
+## Test di carico
+
+Primo test di carico mai eseguito su Nicolò MES (14/10/2026), nell'ambito dell'iniziativa "livello enterprise" (vedi `.unlazy/enterprise-upgrade/PLAN.md`). Diverso dai backtest sopra: qui si misura la latenza sotto richieste **concorrenti**, non una alla volta. Metodo: API in locale su `ui-verification-temp` (branch Neon di prova, svuotato e riportato allo schema corrente prima del test, ripulito dopo); script Python stdlib (`scripts/load-test/run_load_test.py`, nessuna dipendenza esterna — niente k6/ab disponibili sulla macchina) con 20 sessioni utente concorrenti: ciascuna fa un login (una volta, come nella realtà) poi 10 giri di lettura su 6 rotte rappresentative (health, materiali, prodotti, clienti, commesse, layout CAPA).
+
+| Rotta | Richieste | Errori | p50 | p90 | p99 |
+|---|---|---|---|---|---|
+| Login | 20 | 1 (429, limite 20/min per IP) | 303 ms | 339 ms | 345 ms |
+| `/health` | 190 | 0 | **145 ms** | 185 ms | 268 ms |
+| Materiali / Prodotti / Clienti / Commesse / Layout CAPA | 190 ciascuna | 0 | 26–29 ms | 45–52 ms | 70–209 ms |
+
+**Esito**: 1160 richieste in 3,68 s, throughput 315 richieste/s, tasso di errore 0,09% — l'unico errore è il rate limiter sul login che scatta esattamente al bordo del limite (20 login concorrenti contro una soglia di 20/min): conferma che il limite funziona, non un difetto.
+
+**Scoperta degna di nota**: `/health` risponde in ~145 ms contro i ~27 ms delle altre rotte, circa 5 volte più lento. Causa: `GET /health` chiama `db.Database.CanConnectAsync()` ad ogni richiesta (`Program.cs`), cioè apre/verifica davvero una connessione al database Neon a ogni chiamata, invece di riusare il pool di EF Core come le rotte normali. Non è un errore funzionale (`/health/detailed` ha lo stesso scopo in modo più completo), ma se un load balancer o un orchestratore enterprise interroga `/health` spesso (ogni pochi secondi, come è normale in produzione), questo genera traffico DB evitabile e un tempo di risposta cinque volte superiore al necessario per un semplice liveness check. **Da sistemare nella fase "osservabilità/affidabilità"**: separare un liveness check leggero (nessuna chiamata al DB, solo "il processo risponde") da un readiness check che verifica davvero Postgres (già `/health/detailed` lo fa).
+
+**Non misurato in questo giro**: scritture concorrenti (solo letture); comportamento sotto migliaia di sessioni (qui 20, scelto per restare sotto i limiti locali senza false conclusioni); query reali su dataset grandi (il branch di prova era vuoto a parte i 3 record di seed) — il test di carico va ripetuto con un dataset di dimensioni realistiche prima di trarre conclusioni sulla scalabilità in produzione.
+
 ## Cosa manca
 
 | Punto | Stato | Cosa serve |

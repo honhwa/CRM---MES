@@ -18,3 +18,6 @@ installer/archive/*/
 !installer/archive/VERSIONI-GIT.txt
 !installer/archive/**/README.md
 # Gli snapshot binari di build restano locali.
+
+# unlazy skill tracking (local only)
+.unlazy/
