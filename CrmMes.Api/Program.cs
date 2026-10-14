@@ -280,7 +280,8 @@ app.Use(async (context, next) =>
     // defense-in-depth headers every other surface already gets — a browser that ever renders an
     // error page or the Swagger UI from this origin shouldn't be framed, sniffed into a different
     // content type, or leak the referrer.
-    if (context.Request.Path.StartsWithSegments("/api") || context.Request.Path.StartsWithSegments("/swagger"))
+    if (context.Request.Path.StartsWithSegments("/api") || context.Request.Path.StartsWithSegments("/swagger")
+        || context.Request.Path == "/health")
     {
         var headers = context.Response.Headers;
         headers["X-Content-Type-Options"] = "nosniff";
